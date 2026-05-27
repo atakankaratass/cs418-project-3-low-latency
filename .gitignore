@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+output/
+docs/report-assets/generated/
+playwright-report/
+test-results/
+.DS_Store
+.worktrees/
+worktrees/
+~$*.docx
+*.log

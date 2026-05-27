@@ -1,0 +1,46 @@
+{
+  "name": "cs418-project-3-low-latency",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "assignment:check": "tsx scripts/check-assignment-source.ts",
+    "appendix:extract": "tsx scripts/extract-appendix-image.ts",
+    "validate:env": "tsx scripts/validate-environment.ts",
+    "ffmpeg:steps": "tsx scripts/print-ffmpeg-build-steps.ts",
+    "obs:checklist": "tsx scripts/print-obs-checklist.ts",
+    "streaming:commands": "tsx scripts/print-streaming-commands.ts",
+    "experiment:matrix": "tsx scripts/generate-experiment-matrix.ts",
+    "latency:record": "tsx scripts/record-latency.ts",
+    "latency:report": "tsx scripts/generate-latency-report.ts",
+    "qr:bonus-plan": "tsx scripts/generate-qr-bonus-plan.ts",
+    "validate:push": "npm run lint && npm run typecheck && npm run test && npm run build && npm run validate:env && npm run assignment:check && npm run experiment:matrix && npm run latency:report",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.26.0",
+    "@types/node": "^22.15.18",
+    "eslint": "^9.26.0",
+    "globals": "^16.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.0.0",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.31.0",
+    "vitest": "^3.1.3"
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  }
+}

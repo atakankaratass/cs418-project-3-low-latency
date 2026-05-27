@@ -1,0 +1,12 @@
+{
+  "segment": {
+    "xLabel": "seg_duration",
+    "yLabel": "latency_ms",
+    "points": []
+  },
+  "fragment": {
+    "xLabel": "frag_duration",
+    "yLabel": "latency_ms",
+    "points": []
+  }
+}
