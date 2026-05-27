@@ -4,6 +4,9 @@ export type NginxConfigOptions = {
   dashRoot: string;
 };
 
+const quotePath = (path: string): string =>
+  `"${path.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+
 export const renderNginxConfig = (options: NginxConfigOptions): string => `worker_processes  1;
 
 events {
@@ -11,7 +14,6 @@ events {
 }
 
 http {
-  include       mime.types;
   default_type  application/octet-stream;
   sendfile      on;
   tcp_nopush    on;
@@ -20,14 +22,14 @@ http {
   server {
     listen ${options.listenPort};
     server_name 127.0.0.1 localhost;
-    root ${options.projectRoot}/public;
+    root ${quotePath(`${options.projectRoot}/public`)};
 
     location / {
       try_files $uri /index.html;
     }
 
     location /dash/ {
-      alias ${options.dashRoot}/;
+      alias ${quotePath(`${options.dashRoot}/`)};
       add_header Access-Control-Allow-Origin *;
       add_header Cache-Control no-cache;
       types {

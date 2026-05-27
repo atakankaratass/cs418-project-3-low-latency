@@ -7,15 +7,16 @@ describe("live run artifacts", () => {
   test("renders an NGINX config that serves player and DASH artifacts", () => {
     const config = renderNginxConfig({
       listenPort: 8080,
-      projectRoot: "/project",
-      dashRoot: "/project/output/dash",
+      projectRoot: "/project with spaces",
+      dashRoot: "/project with spaces/output/dash",
     });
 
     expect(config).toContain("listen 8080;");
-    expect(config).toContain("root /project/public;");
+    expect(config).toContain('root "/project with spaces/public";');
     expect(config).toContain("location /dash/");
-    expect(config).toContain("alias /project/output/dash/");
+    expect(config).toContain('alias "/project with spaces/output/dash/";');
     expect(config).toContain("add_header Access-Control-Allow-Origin *;");
+    expect(config).not.toContain("include mime.types;");
   });
 
   test("renders a dash.js player for the low latency DASH manifest", () => {
