@@ -16,6 +16,7 @@ export const buildDashCommand = (options: DashCommandOptions): string => {
     options.ffmpegPath,
     "-fflags nobuffer",
     "-flags low_delay",
+    "-listen 1",
     `-i ${options.inputUrl}`,
     "-c copy",
     "-f dash",

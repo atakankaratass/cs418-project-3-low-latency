@@ -29,14 +29,11 @@ http {
     }
 
     location /dash/ {
-      alias ${quotePath(`${options.dashRoot}/`)};
+      proxy_pass http://127.0.0.1:8000/;
+      proxy_buffering off;
+      proxy_cache off;
       add_header Access-Control-Allow-Origin *;
       add_header Cache-Control no-cache;
-      types {
-        application/dash+xml mpd;
-        video/iso.segment m4s;
-        video/mp4 mp4;
-      }
     }
   }
 }
