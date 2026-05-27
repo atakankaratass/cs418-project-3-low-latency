@@ -28,6 +28,7 @@ This repository implements CS 418 Project 3 using the provided `Low Latency.docx
 - `make assignment-check`
 - `make experiment-matrix`
 - `make latency-report`
+- `make live-artifacts`
 - `make live-status`
 - `make validate-pr`
 

@@ -25,6 +25,18 @@ Manual/live validation must not be faked. Screenshots, latency values, inspector
 
 If latency is not low, the setup is not correct. Do not proceed to experiment measurements until the pipeline is fixed.
 
+## Generated Player And NGINX Config
+
+Run `make live-artifacts` before starting the HTTP serving path. It generates a dash.js player at `public/index.html` and an NGINX config at `configs/nginx/generated.conf`.
+
+Start NGINX with the generated config:
+
+```bash
+nginx -c "$PWD/configs/nginx/generated.conf" -p "$PWD/output/nginx"
+```
+
+Then open `http://127.0.0.1:8080/` after FFmpeg and node-gpac-dash are producing the `/dash/live.mpd` stream.
+
 ## Local Status Helper
 
 Run `make live-status` to generate `docs/report-assets/live-validation-status.md`. This helper checks the locally visible FFmpeg configuration, OBS app presence, NGINX availability, `CS418_NODE_GPAC_DASH_DIR`, browser-inspector confirmation flag, and optional baseline latency value.
