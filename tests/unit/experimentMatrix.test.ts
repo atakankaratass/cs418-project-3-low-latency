@@ -1,6 +1,10 @@
 import { describe, expect, test } from "vitest";
 
-import { fragmentExperiments, segmentExperiments } from "../../src/config/experimentMatrix.js";
+import {
+  fragmentExperiments,
+  renderExperimentMatrixMarkdown,
+  segmentExperiments,
+} from "../../src/config/experimentMatrix.js";
 
 describe("experiment matrix", () => {
   test("contains the required keyint and segment duration pairs", () => {
@@ -25,5 +29,12 @@ describe("experiment matrix", () => {
       { keyint: 120, segDuration: 4, fragDuration: 2.0 },
       { keyint: 120, segDuration: 4, fragDuration: 4.0 },
     ]);
+  });
+
+  test("renders prettier-stable markdown tables", () => {
+    const markdown = renderExperimentMatrixMarkdown();
+
+    expect(markdown).toContain("| ------ | ------------ |");
+    expect(markdown).toContain("| 120    | 4            | 0.033         |");
   });
 });

@@ -29,10 +29,13 @@ export const fragmentExperiments: FragmentExperiment[] = [
 
 export const renderExperimentMatrixMarkdown = (): string => {
   const segmentRows = segmentExperiments
-    .map((row) => `| ${row.keyint} | ${row.segDuration} |`)
+    .map((row) => `| ${String(row.keyint).padEnd(6)} | ${String(row.segDuration).padEnd(12)} |`)
     .join("\n");
   const fragmentRows = fragmentExperiments
-    .map((row) => `| ${row.keyint} | ${row.segDuration} | ${row.fragDuration} |`)
+    .map(
+      (row) =>
+        `| ${String(row.keyint).padEnd(6)} | ${String(row.segDuration).padEnd(12)} | ${String(row.fragDuration).padEnd(13)} |`,
+    )
     .join("\n");
 
   return `# Experiment Matrix
@@ -42,7 +45,7 @@ These experiments come directly from \`Low Latency.docx\`.
 ## Segment Duration Experiment
 
 | keyint | seg_duration |
-| --- | --- |
+| ------ | ------------ |
 ${segmentRows}
 
 ## Fragment Duration Experiment
@@ -50,7 +53,7 @@ ${segmentRows}
 Fixed values: \`keyint=120\`, \`seg_duration=4\`.
 
 | keyint | seg_duration | frag_duration |
-| --- | --- | --- |
+| ------ | ------------ | ------------- |
 ${fragmentRows}
 `;
 };
