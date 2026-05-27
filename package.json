@@ -17,6 +17,7 @@
     "experiment:matrix": "tsx scripts/generate-experiment-matrix.ts",
     "latency:record": "tsx scripts/record-latency.ts",
     "latency:report": "tsx scripts/generate-latency-report.ts",
+    "live:artifacts": "tsx scripts/generate-live-artifacts.ts",
     "live:status": "tsx scripts/live-validation-status.ts",
     "qr:bonus-plan": "tsx scripts/generate-qr-bonus-plan.ts",
     "validate:push": "npm run lint && npm run typecheck && npm run test && npm run build && npm run validate:env && npm run assignment:check && npm run experiment:matrix && npm run latency:report",

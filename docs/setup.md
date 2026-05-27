@@ -17,6 +17,7 @@ make validate-env
 make assignment-check
 make experiment-matrix
 make latency-report
+make live-artifacts
 ```
 
 ## Live Setup Notes
@@ -30,3 +31,8 @@ export CS418_RTMP_INPUT="rtmp://127.0.0.1/live/stream"
 ```
 
 `make validate-env` reports what can be checked automatically. OBS, NGINX, modified node-gpac-dash, browser inspector checks, and latency measurements still require real manual validation.
+
+`make live-artifacts` generates:
+
+- `public/index.html`: dash.js low-latency player targeting `/dash/live.mpd`
+- `configs/nginx/generated.conf`: local NGINX config serving the player and `/dash/` artifacts

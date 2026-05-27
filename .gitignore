@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 output/
+configs/nginx/generated.conf
 docs/report-assets/generated/
 playwright-report/
 test-results/

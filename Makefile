@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install format lint typecheck test build validate-env assignment-check experiment-matrix latency-report live-status validate-pr
+.PHONY: help install format lint typecheck test build validate-env assignment-check experiment-matrix latency-report live-artifacts live-status validate-pr
 
 help:
 	@printf "Available targets:\n"
@@ -14,6 +14,7 @@ help:
 	@printf "  make assignment-check  - Validate assignment source coverage\n"
 	@printf "  make experiment-matrix - Generate experiment matrix docs\n"
 	@printf "  make latency-report    - Generate latency report artifacts\n"
+	@printf "  make live-artifacts    - Generate NGINX config and dash.js player\n"
 	@printf "  make live-status       - Generate live validation status report\n"
 	@printf "  make validate-pr       - Run strict local validation gate\n"
 
@@ -46,6 +47,9 @@ experiment-matrix:
 
 latency-report:
 	npm run latency:report
+
+live-artifacts:
+	npm run live:artifacts
 
 live-status:
 	npm run live:status
