@@ -7,10 +7,10 @@ export type DashCommandOptions = {
 };
 
 export const buildDashCommand = (options: DashCommandOptions): string => {
-  const fragmentOptions =
+  const baselineFrag =
     options.fragDuration === undefined
-      ? ""
-      : ` -frag_duration ${options.fragDuration} -frag_type duration`;
+      ? "-frag_type every_frame"
+      : `-frag_duration ${options.fragDuration} -frag_type duration`;
 
   const gopSize = options.segDuration * 30;
 
@@ -28,8 +28,10 @@ export const buildDashCommand = (options: DashCommandOptions): string => {
     "-tune zerolatency",
     "-preset veryfast",
     "-pix_fmt yuv420p",
-    "-c:a copy",
+    "-c:a aac",
+    "-b:a 128k",
     "-f dash",
+    "-ldash 1",
     "-streaming 1",
     "-use_template 1",
     "-use_timeline 1",
@@ -37,9 +39,7 @@ export const buildDashCommand = (options: DashCommandOptions): string => {
     "-extra_window_size 5",
     "-remove_at_exit 0",
     `-seg_duration ${options.segDuration}`,
-    fragmentOptions.trim(),
+    baselineFrag,
     options.outputManifest,
-  ]
-    .filter(Boolean)
-    .join(" ");
+  ].join(" ");
 };

@@ -75,11 +75,10 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
       log("Initializing player with manifest: " + "${options.manifestPath}");
       const player = dashjs.MediaPlayer().create();
       log("dash.js version: " + player.getVersion());
-      log("dash.js settings: " + JSON.stringify(player.getSettings()));
       player.updateSettings({
         streaming: {
           delay: {
-            liveDelay: 2,
+            liveDelay: 4,
           },
           liveCatchup: {
             enabled: true,
@@ -91,8 +90,13 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
           abr: {
             useDeadTimeLatency: true,
           },
+          gaps: {
+            enableStallFix: true,
+            stallSeek: 0.1,
+          },
         },
       });
+      log("dash.js applied settings: " + JSON.stringify(player.getSettings()));
 
       player.on(dashjs.MediaPlayer.events.ERROR, function(e) {
         log("DASH.js Error: " + JSON.stringify(e.error), "error");
@@ -105,6 +109,14 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
       });
       player.on(dashjs.MediaPlayer.events.PLAYBACK_PLAYING, function() {
         log("Playback started playing", "success");
+      });
+      ["PLAYBACK_STALLED", "PLAYBACK_WAITING", "BUFFER_EMPTY", "BUFFER_LOADED"].forEach(function(eventName) {
+        const event = dashjs.MediaPlayer.events[eventName];
+        if (event) {
+          player.on(event, function(e) {
+            log(eventName + ": " + JSON.stringify(e), "warn");
+          });
+        }
       });
       player.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, function(e) {
         log("Rendered quality changed: mediaType=" + e.mediaType + ", index=" + e.newQuality);

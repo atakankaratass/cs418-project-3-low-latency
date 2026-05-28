@@ -18,6 +18,13 @@ The FFmpeg source build and `dashenc.c` modification are documented in `docs/ffm
 
 Live validation must prove playback latency is less than 5 seconds and browser inspector or Wireshark shows chunked transfer behavior.
 
+Current implementation notes to include after evidence is collected:
+
+- The serving path uses modified node-gpac-dash in `-chunk-media-segments` mode behind NGINX with proxy buffering disabled.
+- During debugging, `seg_duration=4` and `keyint=120` produced repeatable dash.js waiting events at segment boundaries. Player logs showed `GapController` jumping approximately `0.1s`, so the symptom was a segment-boundary timeline gap rather than a missing stream.
+- The smoother current live run uses `seg_duration=2`, `keyint=60`, `-ldash 1`, and `-frag_type every_frame`.
+- The observed smooth playback is not a substitute for final evidence. Screenshots, browser inspector chunked-transfer proof, and wall-clock latency measurements still need to be recorded truthfully before this report is finalized.
+
 ## 5. Segment Duration Experiment
 
 Results will be inserted from real `keyint` and `seg_duration` measurements.

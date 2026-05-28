@@ -225,13 +225,16 @@
 - [x] Verify DASH muxer/options with the command shown in Appendix A and compare to the embedded screenshot.
 - [x] Start NGINX (serving player at port 8080).
 - [x] Start modified node-gpac-dash server (port 8000).
-- [ ] Configure OBS RTMP output and wall-clock overlay. **MANUAL STEP — OBS GUI required.**
-- [ ] Start OBS stream to `rtmp://127.0.0.1/live/stream`. **MANUAL STEP.**
-- [ ] Start FFmpeg packaging command for baseline `keyint=120`, `seg_duration=4`. **MANUAL STEP.**
+- [x] Configure OBS RTMP output and wall-clock overlay. **MANUAL STEP — OBS GUI required.**
+- [x] Start OBS stream to `rtmp://127.0.0.1/live/stream`. **MANUAL STEP.**
+- [x] Start FFmpeg packaging command for baseline `keyint=120`, `seg_duration=4`. **MANUAL STEP.**
 - [x] Open dash.js player at `http://127.0.0.1:8080/`.
-- [ ] Confirm playback starts (old static content serves; live requires OBS+FFmpeg running).
+- [x] Confirm playback starts (live OBS+FFmpeg stream played in dash.js).
 - [ ] Confirm browser inspector shows chunks arriving via chunked transfer, not full segments only.
-  - **BLOCKER:** node-gpac-dash `-chunk-media-segments` mode requires "eods" marker that FFmpeg does not write. Serving works in normal mode but without chunked transfer low-latency benefit.
+  - **CURRENT STATUS:** gpac-dash logs show media fragments sent and responses ending by EOF timeout, but browser inspector chunked-transfer evidence still must be captured.
+- [x] Diagnose baseline playback instability.
+  - `seg_duration=4`, `keyint=120` repeatedly reached dash.js `PLAYBACK_WAITING` near segment boundaries; player logs showed `GapController` jumps of about `0.1s`.
+  - `seg_duration=2`, `keyint=60`, `-ldash 1`, `-frag_type every_frame` was observed to play smoothly and should be used as the next formal measurement run.
 - [ ] Confirm latency is below 5 seconds.
 - [ ] Save screenshots under `docs/report-assets/`.
 - [ ] Record baseline result in `docs/latency-results.md`.
@@ -241,7 +244,7 @@
 - [ ] Run `keyint=30`, `seg_duration=1`.
 - [ ] Measure latency 10-20 seconds after playback starts.
 - [ ] Record result.
-- [ ] Run `keyint=60`, `seg_duration=2`.
+- [x] Run `keyint=60`, `seg_duration=2`.
 - [ ] Measure latency 10-20 seconds after playback starts.
 - [ ] Record result.
 - [ ] Run `keyint=90`, `seg_duration=3`.

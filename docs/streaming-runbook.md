@@ -25,6 +25,15 @@ Manual/live validation must not be faked. Screenshots, latency values, inspector
 
 If latency is not low, the setup is not correct. Do not proceed to experiment measurements until the pipeline is fixed.
 
+## Current Live Debugging Notes
+
+- The modified node-gpac-dash checkout must treat `-chunks-per-segment 0` as disabled; otherwise its `nbMdatInSegment == chunkCount` check can end a segment response immediately before media data is sent.
+- A short EOF timeout in node-gpac-dash is used during live-edge segment serving so video and audio responses can end independently after FFmpeg stops appending to the current `.m4s` file.
+- The exact local node-gpac-dash patch notes are documented in `docs/node-gpac-dash-local-patch.md`.
+- The earlier `seg_duration=4`, `keyint=120` baseline played but produced repeated dash.js `PLAYBACK_WAITING` events at segment boundaries. The player log showed `GapController` jumping about `0.1s` every segment, which indicates a segment-boundary timeline gap rather than a missing stream.
+- A `seg_duration=2`, `keyint=60`, `-frag_type every_frame` run was observed by the user to play smoothly. Treat this as qualitative live validation only until browser inspector evidence, screenshots, and wall-clock latency measurements are captured.
+- The generated player currently uses `liveDelay: 4` and logs applied dash.js settings plus stall/waiting/buffer events to make future runs diagnosable.
+
 ## Generated Player And NGINX Config
 
 Run `make live-artifacts` before starting the HTTP serving path. It generates a dash.js player at `public/index.html` and an NGINX config at `configs/nginx/generated.conf`.
