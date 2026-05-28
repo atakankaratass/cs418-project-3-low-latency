@@ -2,6 +2,8 @@
 
 For each scenario, latency is measured 10-20 seconds after playback starts.
 
+The final successful below-5-second validation used reduced OBS output settings: `852x480`, `1200 kbps`, `30 fps`, and a `1s` keyframe interval for the `keyint=30`, `seg_duration=1` run. Larger segment and fragment settings were still recorded truthfully even when latency exceeded 5 seconds or playback showed stalls.
+
 ## Required Manual Method
 
 1. Start the low-latency pipeline for the selected experiment row.
@@ -17,5 +19,6 @@ For each scenario, latency is measured 10-20 seconds after playback starts.
 - Raw manual rows: `docs/latency-measurements.csv`
 - Report tables: `docs/latency-results.md`
 - Plot-ready data: `docs/report-assets/plot-spec.json`
+- Browser chunked-transfer evidence: `docs/report-assets/browser-chunked-transfer.png`
 
 Do not fabricate latency values. Missing measurements must remain visibly incomplete.

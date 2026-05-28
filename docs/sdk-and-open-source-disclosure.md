@@ -1,4 +1,4 @@
-# SDK And Open-Source Disclosure Draft
+# SDK And Open-Source Disclosure
 
 ## Tools And Libraries
 
@@ -22,3 +22,4 @@
 - The local node-gpac-dash checkout was adjusted so a zero `chunks-per-segment` value does not terminate a segment response before any media data is sent.
 - The local node-gpac-dash checkout also uses an EOF timeout while serving live-edge `.m4s` files so audio and video can finish independently after FFmpeg stops appending to each file.
 - These changes are part of the live-serving setup and are documented in `docs/node-gpac-dash-local-patch.md`. They must be disclosed in the final report alongside the required FFmpeg `dashenc.c` source modification.
+- The source-built FFmpeg evidence is recorded in `docs/report-assets/ffmpeg-build-evidence.md`.
