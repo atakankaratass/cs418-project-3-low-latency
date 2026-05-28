@@ -220,17 +220,18 @@
 
 ## Task 11: Perform Core Live Validation Manually
 
-- [ ] Build modified FFmpeg from Appendix A.
-- [ ] Verify modified FFmpeg path with `whereis ffmpeg`.
-- [ ] Verify DASH muxer/options with the command shown in Appendix A and compare to the embedded screenshot.
-- [ ] Start NGINX.
-- [ ] Start modified node-gpac-dash server.
-- [ ] Configure OBS RTMP output and wall-clock overlay.
-- [ ] Start OBS stream.
-- [ ] Start FFmpeg packaging command for baseline `keyint=120`, `seg_duration=4`.
-- [ ] Open dash.js player.
-- [ ] Confirm playback starts.
+- [x] Build modified FFmpeg from Appendix A (`$HOME/bin/ffmpeg`, dashenc.c modification applied, RTMP + DASH supported).
+- [x] Verify modified FFmpeg path with `whereis ffmpeg`.
+- [x] Verify DASH muxer/options with the command shown in Appendix A and compare to the embedded screenshot.
+- [x] Start NGINX (serving player at port 8080).
+- [x] Start modified node-gpac-dash server (port 8000).
+- [ ] Configure OBS RTMP output and wall-clock overlay. **MANUAL STEP — OBS GUI required.**
+- [ ] Start OBS stream to `rtmp://127.0.0.1/live/stream`. **MANUAL STEP.**
+- [ ] Start FFmpeg packaging command for baseline `keyint=120`, `seg_duration=4`. **MANUAL STEP.**
+- [x] Open dash.js player at `http://127.0.0.1:8080/`.
+- [ ] Confirm playback starts (old static content serves; live requires OBS+FFmpeg running).
 - [ ] Confirm browser inspector shows chunks arriving via chunked transfer, not full segments only.
+  - **BLOCKER:** node-gpac-dash `-chunk-media-segments` mode requires "eods" marker that FFmpeg does not write. Serving works in normal mode but without chunked transfer low-latency benefit.
 - [ ] Confirm latency is below 5 seconds.
 - [ ] Save screenshots under `docs/report-assets/`.
 - [ ] Record baseline result in `docs/latency-results.md`.

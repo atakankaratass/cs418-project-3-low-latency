@@ -11,3 +11,4 @@ test-results/
 worktrees/
 ~$*.docx
 *.log
+session-*.md

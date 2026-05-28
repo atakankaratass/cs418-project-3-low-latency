@@ -26,12 +26,14 @@ http {
 
     location / {
       try_files $uri /index.html;
+      add_header Cache-Control "no-store, no-cache, must-revalidate, proxy-revalidate";
     }
 
     location /dash/ {
       proxy_pass http://127.0.0.1:8000/;
       proxy_buffering off;
       proxy_cache off;
+      proxy_hide_header Access-Control-Allow-Origin;
       add_header Access-Control-Allow-Origin *;
       add_header Cache-Control no-cache;
     }

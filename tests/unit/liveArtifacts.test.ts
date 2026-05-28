@@ -23,10 +23,10 @@ describe("live run artifacts", () => {
   test("renders a dash.js player for the low latency DASH manifest", () => {
     const html = renderDashPlayerHtml({ manifestPath: "/dash/live.mpd" });
 
-    expect(html).toContain("https://cdn.dashjs.org/latest/dash.all.min.js");
+    expect(html).toContain("https://cdn.dashjs.org/v4.7.4/dash.all.min.js");
     expect(html).toContain("/dash/live.mpd");
     expect(html).toContain("dashjs.MediaPlayer().create()");
-    expect(html).toContain("lowLatencyEnabled");
+    expect(html).toContain("liveDelay: 2");
     expect(html).toContain("video.controls = true");
   });
 });

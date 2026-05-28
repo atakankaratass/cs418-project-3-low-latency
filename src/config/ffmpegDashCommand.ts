@@ -12,13 +12,23 @@ export const buildDashCommand = (options: DashCommandOptions): string => {
       ? ""
       : ` -frag_duration ${options.fragDuration} -frag_type duration`;
 
+  const gopSize = options.segDuration * 30;
+
   return [
     options.ffmpegPath,
     "-fflags nobuffer",
     "-flags low_delay",
     "-listen 1",
     `-i ${options.inputUrl}`,
-    "-c copy",
+    "-c:v libx264",
+    `-g ${gopSize}`,
+    `-keyint_min ${gopSize}`,
+    "-sc_threshold 0",
+    "-bf 0",
+    "-tune zerolatency",
+    "-preset veryfast",
+    "-pix_fmt yuv420p",
+    "-c:a copy",
     "-f dash",
     "-streaming 1",
     "-use_template 1",
