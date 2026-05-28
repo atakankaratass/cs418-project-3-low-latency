@@ -306,16 +306,16 @@
 ## Task 15: Implement Bonus QR Timestamp Measurement After Core Completion
 
 - [ ] Confirm all core tasks are complete and validated.
-- [ ] Create `src/config/qrBonus.ts`.
+- [x] Create `src/config/qrBonus.ts`.
 - [ ] Create `scripts/generate-qr-bonus-plan.ts`.
-- [ ] Choose a QR timestamp generator that stays within assignment intent and disclose it in SDK/open-source docs.
-- [ ] Generate QR code containing current system clock timestamp.
-- [ ] Embed QR code into the video frame during encoding or OBS composition.
+- [x] Choose a QR timestamp generator that stays within assignment intent and disclose it in SDK/open-source docs.
+- [x] Generate QR code containing current system clock timestamp.
+- [x] Embed QR code into the video frame during OBS composition.
 - [ ] On player side, read QR from the frame.
 - [ ] Subtract QR timestamp from current system clock.
 - [ ] Record QR-based latency separately from required manual wall-clock measurements.
-- [ ] Add tests for QR timestamp payload formatting and latency subtraction logic.
-- [ ] Add `docs/qr-bonus.md`.
+- [x] Add tests for QR timestamp payload formatting and latency subtraction logic.
+- [x] Add `docs/qr-bonus.md`.
 - [ ] Add bonus section to final report.
 - [ ] Re-run `make validate-pr`.
 

@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install format lint typecheck test build validate-env assignment-check experiment-matrix latency-report live-artifacts live-ffmpeg-evidence live-experiment-checklist live-status validate-pr
+.PHONY: help install format lint typecheck test build validate-env assignment-check experiment-matrix latency-report live-artifacts live-ffmpeg-evidence live-experiment-checklist live-status qr-overlay validate-pr
 
 help:
 	@printf "Available targets:\n"
@@ -18,6 +18,7 @@ help:
 	@printf "  make live-ffmpeg-evidence - Capture FFmpeg DASH build evidence\n"
 	@printf "  make live-experiment-checklist - Generate live experiment commands\n"
 	@printf "  make live-status       - Generate live validation status report\n"
+	@printf "  make qr-overlay        - Generate OBS QR timestamp overlay\n"
 	@printf "  make validate-pr       - Run strict local validation gate\n"
 
 install:
@@ -61,6 +62,9 @@ live-experiment-checklist:
 
 live-status:
 	npm run live:status
+
+qr-overlay:
+	npm run qr:overlay
 
 validate-pr:
 	npm run validate:push

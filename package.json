@@ -21,6 +21,7 @@
     "live:ffmpeg-evidence": "tsx scripts/capture-ffmpeg-evidence.ts",
     "live:experiment-checklist": "tsx scripts/generate-live-experiment-checklist.ts",
     "live:status": "tsx scripts/live-validation-status.ts",
+    "qr:overlay": "tsx scripts/generate-qr-overlay.ts",
     "qr:bonus-plan": "tsx scripts/generate-qr-bonus-plan.ts",
     "validate:push": "npm run lint && npm run typecheck && npm run test && npm run build && npm run validate:env && npm run assignment:check && npm run experiment:matrix && npm run latency:report",
     "prepare": "husky"

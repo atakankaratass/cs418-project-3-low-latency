@@ -32,6 +32,7 @@ This repository implements CS 418 Project 3 using the provided `Low Latency.docx
 - `make live-ffmpeg-evidence`
 - `make live-experiment-checklist`
 - `make live-status`
+- `make qr-overlay`
 - `make validate-pr`
 
 ## Required Reading

@@ -12,9 +12,10 @@
 - ESLint and Prettier: code and documentation quality.
 - Husky and lint-staged: local git hooks.
 
-## Bonus Disclosure Placeholder
+## Bonus Disclosure
 
-The QR-code bonus dependency must be added here after the core project is complete and the QR implementation is selected.
+- qrcode JavaScript library from jsDelivr CDN (`qrcode@1.5.4`): renders the optional OBS Browser Source QR timestamp overlay in `public/qr-overlay.html`.
+- The QR overlay is isolated from the core streaming pipeline and should be used only after the required core validation evidence has been captured.
 
 ## Local Patch Notes
 

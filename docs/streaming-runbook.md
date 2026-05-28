@@ -54,6 +54,8 @@ Run `make live-ffmpeg-evidence` to generate `docs/report-assets/ffmpeg-build-evi
 
 Run `make live-experiment-checklist` to generate `docs/report-assets/live-experiment-checklist.md`. This records the FFmpeg commands for all segment-duration and fragment-duration experiments, while leaving browser inspector and wall-clock latency gates explicitly pending until manually measured.
 
+Run `make qr-overlay` to generate `public/qr-overlay.html` for the optional QR-code bonus. Add `http://127.0.0.1:8080/qr-overlay.html` as a transparent OBS Browser Source only after the core wall-clock and chunked-transfer evidence is captured.
+
 Useful environment variables:
 
 ```bash
