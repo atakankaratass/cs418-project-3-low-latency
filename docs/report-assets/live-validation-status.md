@@ -1,19 +1,16 @@
 # Live Validation Status
 
-- Modified FFmpeg ready: no
+- Modified FFmpeg ready: yes
 - Core live validation ready: no
-- FFmpeg command checked: ffmpeg
-- OBS found: no
+- FFmpeg command checked: /Users/atakankaratas/bin/ffmpeg
+- OBS found: yes
 - NGINX found: yes
-- node-gpac-dash dir: not set
+- node-gpac-dash dir: /Users/atakankaratas/Development/node-gpac-dash
 - Browser chunked transfer confirmed: no
 - Baseline latency ms: not recorded
 
 ## Blockers
 
-- Modified source-built FFmpeg with --enable-demuxer=dash --enable-libxml2 was not verified.
-- OBS was not found or not recorded as installed.
-- CS418_NODE_GPAC_DASH_DIR is not set to a modified node-gpac-dash checkout.
 - Browser inspector chunked transfer check has not been recorded.
 - Baseline latency below 5000 ms has not been recorded.
 

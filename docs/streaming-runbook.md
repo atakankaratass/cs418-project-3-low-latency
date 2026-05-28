@@ -50,6 +50,10 @@ Then open `http://127.0.0.1:8080/` after FFmpeg and node-gpac-dash are producing
 
 Run `make live-status` to generate `docs/report-assets/live-validation-status.md`. This helper checks the locally visible FFmpeg configuration, OBS app presence, NGINX availability, `CS418_NODE_GPAC_DASH_DIR`, browser-inspector confirmation flag, and optional baseline latency value.
 
+Run `make live-ffmpeg-evidence` to generate `docs/report-assets/ffmpeg-build-evidence.md`. This captures the local FFmpeg version/configuration output and DASH muxer options without replacing the manual source-build requirement.
+
+Run `make live-experiment-checklist` to generate `docs/report-assets/live-experiment-checklist.md`. This records the FFmpeg commands for all segment-duration and fragment-duration experiments, while leaving browser inspector and wall-clock latency gates explicitly pending until manually measured.
+
 Useful environment variables:
 
 ```bash
