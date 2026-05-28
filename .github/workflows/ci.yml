@@ -31,5 +31,11 @@ jobs:
         run: npm run test
       - name: Build
         run: npm run build
+      - name: Environment validation
+        run: npm run validate:env
       - name: Assignment check
         run: npm run assignment:check
+      - name: Experiment matrix
+        run: npm run experiment:matrix
+      - name: Latency report
+        run: npm run latency:report

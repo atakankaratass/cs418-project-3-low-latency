@@ -20,6 +20,8 @@ const obsAppFound =
 const baselineLatencyMs = process.env.CS418_BASELINE_LATENCY_MS
   ? Number(process.env.CS418_BASELINE_LATENCY_MS)
   : undefined;
+const browserEvidencePath = process.env.CS418_BROWSER_CHUNKED_TRANSFER_EVIDENCE;
+const latencyMeasurementPath = process.env.CS418_LATENCY_MEASUREMENT_PATH;
 
 const status = summarizeLiveValidationStatus({
   ffmpegVersionOutput: ffmpeg.output,
@@ -27,7 +29,11 @@ const status = summarizeLiveValidationStatus({
   nginxFound: nginx.found,
   nodeGpacDashDir: process.env.CS418_NODE_GPAC_DASH_DIR,
   browserInspectorChecked: process.env.CS418_BROWSER_CHUNKED_TRANSFER_CONFIRMED === "1",
+  browserInspectorEvidencePath: browserEvidencePath,
+  browserInspectorEvidenceFound: browserEvidencePath ? existsSync(browserEvidencePath) : undefined,
   baselineLatencyMs,
+  latencyMeasurementPath,
+  latencyMeasurementFound: latencyMeasurementPath ? existsSync(latencyMeasurementPath) : undefined,
 });
 
 const lines = [
@@ -40,7 +46,9 @@ const lines = [
   `- NGINX found: ${nginx.found ? "yes" : "no"}`,
   `- node-gpac-dash dir: ${process.env.CS418_NODE_GPAC_DASH_DIR ?? "not set"}`,
   `- Browser chunked transfer confirmed: ${process.env.CS418_BROWSER_CHUNKED_TRANSFER_CONFIRMED === "1" ? "yes" : "no"}`,
+  `- Browser chunked transfer evidence: ${browserEvidencePath ?? "not recorded"}`,
   `- Baseline latency ms: ${baselineLatencyMs ?? "not recorded"}`,
+  `- Latency measurement artifact: ${latencyMeasurementPath ?? "not recorded"}`,
   "",
   "## Blockers",
   "",

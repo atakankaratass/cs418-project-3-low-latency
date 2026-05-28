@@ -15,6 +15,7 @@ describe("live run artifacts", () => {
     expect(config).toContain('root "/project with spaces/public";');
     expect(config).toContain("location /dash/");
     expect(config).toContain("proxy_pass http://127.0.0.1:8000/;");
+    expect(config).toContain("proxy_http_version 1.1;");
     expect(config).toContain("proxy_buffering off;");
     expect(config).toContain("add_header Access-Control-Allow-Origin *;");
     expect(config).not.toContain("include mime.types;");

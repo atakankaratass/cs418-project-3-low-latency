@@ -4,7 +4,11 @@ export type LiveValidationInput = {
   nginxFound: boolean;
   nodeGpacDashDir?: string;
   browserInspectorChecked: boolean;
+  browserInspectorEvidencePath?: string;
+  browserInspectorEvidenceFound?: boolean;
   baselineLatencyMs?: number;
+  latencyMeasurementPath?: string;
+  latencyMeasurementFound?: boolean;
 };
 
 export type LiveValidationStatus = {
@@ -42,10 +46,26 @@ export const summarizeLiveValidationStatus = (input: LiveValidationInput): LiveV
     blockers.push("Browser inspector chunked transfer check has not been recorded.");
   }
 
+  if (!input.browserInspectorEvidencePath) {
+    blockers.push("Browser inspector evidence artifact path has not been recorded.");
+  } else if (input.browserInspectorEvidenceFound === false) {
+    blockers.push(
+      `Browser inspector evidence artifact was not found: ${input.browserInspectorEvidencePath}.`,
+    );
+  }
+
   if (input.baselineLatencyMs === undefined) {
     blockers.push("Baseline latency below 5000 ms has not been recorded.");
+  } else if (!Number.isFinite(input.baselineLatencyMs) || input.baselineLatencyMs < 0) {
+    blockers.push("Baseline latency must be a finite non-negative number below 5000 ms.");
   } else if (input.baselineLatencyMs >= 5000) {
     blockers.push(`Baseline latency is not below 5000 ms: ${input.baselineLatencyMs} ms.`);
+  }
+
+  if (!input.latencyMeasurementPath) {
+    blockers.push("Latency measurement artifact path has not been recorded.");
+  } else if (input.latencyMeasurementFound === false) {
+    blockers.push(`Latency measurement artifact was not found: ${input.latencyMeasurementPath}.`);
   }
 
   return {

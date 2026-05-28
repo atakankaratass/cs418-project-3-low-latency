@@ -31,6 +31,7 @@ http {
 
     location /dash/ {
       proxy_pass http://127.0.0.1:8000/;
+      proxy_http_version 1.1;
       proxy_buffering off;
       proxy_cache off;
       proxy_hide_header Access-Control-Allow-Origin;

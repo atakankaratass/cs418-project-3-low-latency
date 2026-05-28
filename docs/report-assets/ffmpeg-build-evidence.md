@@ -1,10 +1,93 @@
 # FFmpeg Build Evidence
 
 - FFmpeg command checked: `/Users/atakankaratas/bin/ffmpeg`
-- Modified FFmpeg DASH support: verified
+- Modified FFmpeg Appendix evidence: verified
 - `--enable-demuxer=dash`: yes
 - `--enable-libxml2`: yes
 - `-ldash`: yes
 - `-streaming`: yes
+- `dashenc.c` temp-path patch: yes
 
 This evidence supports the source-built FFmpeg requirement.
+
+## DASH muxer output excerpt
+
+```text
+Muxer dash [DASH Muxer]:
+    Common extensions: mpd.
+    Default video codec: h264.
+    Default audio codec: aac.
+dash muxer AVOptions:
+  -adaptation_sets   <string>     E.......... Adaptation sets. Syntax: id=0,streams=0,1,2 id=1,streams=3,4 and so on
+  -dash_segment_type <int>        E.......... set dash segment files type (from 0 to 2) (default auto)
+     auto            0            E.......... select segment file format based on codec
+     mp4             1            E.......... make segment file in ISOBMFF format
+     webm            2            E.......... make segment file in WebM format
+  -extra_window_size <int>        E.......... number of segments kept outside of the manifest before removing from disk (from 0 to INT_MAX) (default 5)
+  -format_options    <dictionary> E.......... set list of options for the container format (mp4/webm) used for dash
+  -frag_duration     <duration>   E.......... fragment duration (in seconds, fractional value can be set) (default 0)
+  -frag_type         <int>        E.......... set type of interval for fragments (from 0 to 3) (default none)
+     none            0            E.......... one fragment per segment
+     every_frame     1            E.......... fragment at every frame
+     duration        2            E.......... fragment at specific time intervals
+     pframes         3            E.......... fragment at keyframes and following P-Frame reordering (Video only, experimental)
+  -global_sidx       <boolean>    E.......... Write global SIDX atom. Applicable only for single file, mp4 output, non-streaming mode (default false)
+  -hls_master_name   <string>     E.......... HLS master playlist name (default "master.m3u8")
+  -hls_playlist      <boolean>    E.......... Generate HLS playlist files(master.m3u8, media_%d.m3u8) (default false)
+  -http_opts         <dictionary> E.......... HTTP protocol options
+  -http_persistent   <boolean>    E.......... Use persistent HTTP connections (default false)
+  -http_user_agent   <string>     E.......... override User-Agent field in HTTP header
+  -ignore_io_errors  <boolean>    E.......... Ignore IO errors during open and write. Useful for long-duration runs with network output (default false)
+  -index_correction  <boolean>    E.......... Enable/Disable segment index correction logic (default false)
+  -init_seg_name     <string>     E.......... DASH-templated name to used for the initialization segment (default "init-stream$RepresentationID$.$ext$")
+  -ldash             <boolean>    E.......... Enable Low-latency dash. Constrains the value of a few elements (default false)
+  -lhls              <boolean>    E.......... Enable Low-latency HLS(Experimental). Adds #EXT-X-PREFETCH tag with current segment's URI (default false)
+  -master_m3u8_publish_rate <int>        E.......... Publish master playlist every after this many segment intervals (from 0 to UINT32_MAX) (default 0)
+  -max_playback_rate <rational>   E.......... Set desired maximum playback rate (from 0.5 to 1.5) (default 1/1)
+  -media_seg_name    <string>     E.......... DASH-templated name to used for the media segments (default "chunk-stream$RepresentationID$-$Number%05d$.$ext$")
+  -method            <string>     E.......... set the HTTP method
+  -min_playback_rate <rational>   E.......... Set desired minimum playback rate (from 0.5 to 1.5) (default 1/1)
+  -mpd_profile       <flags>      E.......... Set profiles. Elements and values used in the manifest may be constrained by them (default dash)
+     dash                         E.......... MPEG-DASH ISO Base media file format live profile
+     dvb_dash                     E.......... DVB-DASH profile
+  -remove_at_exit    <boolean>    E.......... remove all segments when finished (default false)
+  -seg_duration      <duration>   E.......... segment duration (in seconds, fractional value can be set) (default 5)
+  -single_file       <boolean>    E.......... Store all segments in one file, accessed using byte ranges (default false)
+  -single_file_name  <string>     E.......... DASH-templated name to be used for baseURL. Implies storing all segments in one file, accessed using byte ranges
+  -streaming         <boolean>    E.......... Enable/Disable streaming mode of output. Each frame will be moof fragment (default false)
+  -target_latency    <duration>   E.......... Set desired target latency for Low-latency dash (default 0)
+  -timeout           <duration>   E.......... set timeout for socket I/O operations (default -0.000001)
+  -update_period     <int64>      E.......... Set the mpd update interval (from 0 to I64_MAX) (default 0)
+  -use_template      <boolean>    E.......... Use SegmentTemplate instead of SegmentList (default true)
+  -use_timeline      <boolean>    E.......... Use SegmentTimeline in SegmentTemplate (default true)
+  -utc_timing_url    <string>     E.......... URL of the page that will return the UTC timestamp in ISO format
+  -window_size       <int>        E.......... number of segments kept in the manifest (from 0 to INT_MAX) (default 0)
+  -write_prft        <boolean>    E.......... Write producer reference time element (default auto)
+
+
+Exiting with exit code 0
+ffmpeg version N-124657-gfb5dd6ec60 Copyright (c) 2000-2026 the FFmpeg developers
+  built with Apple clang version 17.0.0 (clang-1700.6.3.2)
+  configuration: --prefix=/Users/atakankaratas/ffmpeg_build --extra-cflags=-I/opt/homebrew/include --extra-ldflags=-L/opt/homebrew/lib --bindir=/Users/atakankaratas/bin --enable-gpl --enable-nonfree --enable-gnutls --enable-libx264 --enable-libx265 --enable-libfdk-aac --enable-libfreetype --enable-libopus --enable-libdav1d --enable-libharfbuzz --enable-libfontconfig --enable-libfribidi --enable-demuxer=dash --enable-libxml2
+  libavutil      60. 31.100 / 60. 31.100
+  libavcodec     62. 34.102 / 62. 34.102
+  libavformat    62. 18.100 / 62. 18.100
+  libavdevice    62.  4.100 / 62.  4.100
+  libavfilter    11. 17.100 / 11. 17.100
+  libswscale      9.  7.100 /  9.  7.100
+  libswresample   6.  4.100 /  6.  4.100
+```
+
+## dashenc.c patch evidence
+
+```c
+->full_path, sizeof(os->full_path), "%s%s", c->dirname,
+                 os->filename);
+        snprintf(os->temp_path, sizeof(os->temp_path),
+                 use_rename ? "%s" : "%s", os->full_path);
+        set_http_options(&opts, c);
+        ret = dashenc_io_open(s, &os->out, os->temp_path, &opts);
+        av_dict_free(&opts);
+        if (ret < 0) {
+            return handle_io_open_error(s, ret, os->temp_path);
+```

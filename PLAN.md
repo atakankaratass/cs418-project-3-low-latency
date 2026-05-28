@@ -70,7 +70,6 @@
 - Create: `src/config/experimentMatrix.ts`
 - Create: `src/config/ffmpegDashCommand.ts`
 - Create: `src/config/paths.ts`
-- Create: `src/config/qrBonus.ts`
 - Create: `src/report/latencyCsv.ts`
 - Create: `src/report/latencyMarkdown.ts`
 - Create: `src/report/plotSpec.ts`

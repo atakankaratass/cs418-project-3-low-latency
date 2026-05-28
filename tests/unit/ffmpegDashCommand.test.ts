@@ -12,9 +12,13 @@ describe("FFmpeg DASH command templates", () => {
     });
 
     expect(command).toContain("$HOME/bin/ffmpeg");
+    expect(command).toContain("-f flv -listen 1");
     expect(command).toContain("-i rtmp://127.0.0.1/live/stream");
     expect(command).toContain("-f dash");
     expect(command).toContain("-ldash 1");
+    expect(command).toContain("-use_template 1");
+    expect(command).toContain("-use_timeline 0");
+    expect(command).toContain("-utc_timing_url 'https://time.akamai.com/?iso'");
     expect(command).toContain("-frag_type every_frame");
     expect(command).toContain("-seg_duration 4");
     expect(command).toContain("output/dash/live.mpd");

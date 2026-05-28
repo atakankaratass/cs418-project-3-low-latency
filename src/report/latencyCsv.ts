@@ -22,6 +22,41 @@ export const withLatency = (record: LatencyInputRecord): LatencyRecord => ({
   latencyMs: calculateLatencyMs(record.observedSystemTime, record.embeddedVideoTime),
 });
 
+const formatCsvField = (value: string | number): string => {
+  const stringValue = String(value);
+  if (stringValue.includes("\n") || stringValue.includes("\r")) {
+    throw new Error("Latency CSV fields must not contain newlines");
+  }
+
+  return /[",]/.test(stringValue) ? `"${stringValue.replaceAll('"', '""')}"` : stringValue;
+};
+
+const parseCsvLine = (line: string): string[] => {
+  const fields: string[] = [];
+  let field = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const nextChar = line[index + 1];
+
+    if (char === '"' && inQuotes && nextChar === '"') {
+      field += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === "," && !inQuotes) {
+      fields.push(field);
+      field = "";
+    } else {
+      field += char;
+    }
+  }
+
+  fields.push(field);
+  return fields;
+};
+
 export const formatLatencyCsvRow = (record: LatencyInputRecord): string => {
   const withComputedLatency = withLatency(record);
 
@@ -34,7 +69,9 @@ export const formatLatencyCsvRow = (record: LatencyInputRecord): string => {
     withComputedLatency.embeddedVideoTime,
     withComputedLatency.latencyMs,
     withComputedLatency.notes,
-  ].join(",");
+  ]
+    .map(formatCsvField)
+    .join(",");
 };
 
 export const parseLatencyCsv = (csv: string): LatencyRecord[] =>
@@ -52,7 +89,7 @@ export const parseLatencyCsv = (csv: string): LatencyRecord[] =>
         embeddedVideoTime,
         latencyMs,
         notes,
-      ] = line.split(",");
+      ] = parseCsvLine(line);
 
       return {
         experimentType: experimentType as ExperimentType,

@@ -6,8 +6,8 @@
 2. Start NGINX for HTTP delivery.
 3. Start the modified node-gpac-dash server.
 4. Configure OBS with wall-clock overlay and RTMP output.
-5. Start OBS streaming.
-6. Start FFmpeg packaging with the current experiment command.
+5. Start FFmpeg packaging with the current experiment command so it listens for RTMP input.
+6. Start OBS streaming to `rtmp://127.0.0.1/live` with stream key `stream`.
 7. Open the dash.js player in a browser.
 
 ## Required Live Checks
