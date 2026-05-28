@@ -7,6 +7,7 @@ export type LatencyInputRecord = {
   fragDuration?: number;
   observedSystemTime: string;
   embeddedVideoTime: string;
+  latencyMs?: number;
   notes: string;
 };
 
@@ -19,7 +20,8 @@ export const calculateLatencyMs = (observedSystemTime: string, embeddedVideoTime
 
 export const withLatency = (record: LatencyInputRecord): LatencyRecord => ({
   ...record,
-  latencyMs: calculateLatencyMs(record.observedSystemTime, record.embeddedVideoTime),
+  latencyMs:
+    record.latencyMs ?? calculateLatencyMs(record.observedSystemTime, record.embeddedVideoTime),
 });
 
 const formatCsvField = (value: string | number): string => {

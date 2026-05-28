@@ -78,7 +78,7 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
       player.updateSettings({
         streaming: {
           delay: {
-            liveDelay: 4,
+            liveDelay: 2,
           },
           liveCatchup: {
             enabled: true,

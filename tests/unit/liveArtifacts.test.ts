@@ -27,7 +27,7 @@ describe("live run artifacts", () => {
     expect(html).toContain("https://cdn.dashjs.org/v4.7.4/dash.all.min.js");
     expect(html).toContain("/dash/live.mpd");
     expect(html).toContain("dashjs.MediaPlayer().create()");
-    expect(html).toContain("liveDelay: 4");
+    expect(html).toContain("liveDelay: 2");
     expect(html).toContain("dash.js applied settings:");
     expect(html).toContain("PLAYBACK_STALLED");
     expect(html).toContain("PLAYBACK_WAITING");

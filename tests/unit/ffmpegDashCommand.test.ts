@@ -19,6 +19,8 @@ describe("FFmpeg DASH command templates", () => {
     expect(command).toContain("-use_template 1");
     expect(command).toContain("-use_timeline 0");
     expect(command).toContain("-utc_timing_url 'https://time.akamai.com/?iso'");
+    expect(command).toContain("-window_size 2");
+    expect(command).toContain("-extra_window_size 2");
     expect(command).toContain("-frag_type every_frame");
     expect(command).toContain("-seg_duration 4");
     expect(command).toContain("output/dash/live.mpd");

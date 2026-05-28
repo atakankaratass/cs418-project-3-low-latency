@@ -26,6 +26,20 @@ describe("latency CSV helpers", () => {
     );
   });
 
+  test("uses explicit latency when manual readings are not ISO timestamps", () => {
+    expect(
+      formatLatencyCsvRow({
+        experimentType: "segment",
+        keyint: 30,
+        segDuration: 1,
+        observedSystemTime: "internet clock",
+        embeddedVideoTime: "OBS overlay",
+        latencyMs: 4500,
+        notes: "manual wall-clock reading",
+      }),
+    ).toBe("segment,30,1,,internet clock,OBS overlay,4500,manual wall-clock reading");
+  });
+
   test("escapes and parses notes containing commas and quotes", () => {
     const row = formatLatencyCsvRow({
       experimentType: "segment",
