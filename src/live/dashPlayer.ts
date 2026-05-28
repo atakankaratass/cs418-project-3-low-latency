@@ -25,7 +25,6 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
   </head>
   <body>
     <h1>CS 418 Project 3 Low Latency Player</h1>
-    <p>Manifest: <code>${options.manifestPath}</code></p>
     <video id="video" autoplay muted playsinline></video>
     
     <div id="logs">
@@ -72,7 +71,7 @@ export const renderDashPlayerHtml = (options: DashPlayerOptions): string => `<!d
       const video = document.getElementById("video");
       video.controls = true;
 
-      log("Initializing player with manifest: " + "${options.manifestPath}");
+      log("Initializing player");
       const player = dashjs.MediaPlayer().create();
       log("dash.js version: " + player.getVersion());
       player.updateSettings({

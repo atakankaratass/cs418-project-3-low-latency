@@ -28,9 +28,9 @@ OBS -> RTMP -> modified FFmpeg -> LL-DASH chunks/segments -> NGINX -> modified n
 
 OBS captures the source and burns the current wall-clock time into the video frame. FFmpeg listens for RTMP input from OBS and writes DASH output to local disk. NGINX serves the browser player and proxies `/dash/` requests to node-gpac-dash. The modified node-gpac-dash server sends media segments using HTTP chunked transfer encoding, so the player can receive partial segment data before the whole segment is finished.
 
-The browser player is generated in `public/index.html`. It uses dash.js and points to `/dash/live.mpd`. I kept the manifest path visible in the page because it helps during demo and debugging. It clearly shows that the player is loading the expected DASH manifest.
+The browser player is generated in `public/index.html`. It uses dash.js and points to `/dash/live.mpd`. The page keeps the UI simple and only shows the video player plus debug logs that are useful during validation.
 
-**[INSERT SCREENSHOT: dash.js player page showing the video and manifest `/dash/live.mpd`]**
+**[INSERT SCREENSHOT: dash.js player page showing the video playback]**
 
 ## 3. FFmpeg Source Build And Required Source Modification
 

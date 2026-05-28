@@ -32,5 +32,6 @@ describe("live run artifacts", () => {
     expect(html).toContain("PLAYBACK_STALLED");
     expect(html).toContain("PLAYBACK_WAITING");
     expect(html).toContain("video.controls = true");
+    expect(html).not.toMatch(/manifest:/i);
   });
 });
