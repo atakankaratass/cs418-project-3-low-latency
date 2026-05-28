@@ -294,15 +294,15 @@
 - [x] Create `docs/sdk-and-open-source-disclosure.md`.
 - [x] Create `docs/report-outline.md`.
 - [x] Create `docs/final-report.md`.
-- [ ] Include assignment goal.
-- [ ] Include architecture: OBS, RTMP, modified FFmpeg, DASH chunks/segments, NGINX, node-gpac-dash, dash.js.
-- [ ] Include FFmpeg source modification and build verification.
-- [ ] Include setup validation and chunked transfer proof.
-- [ ] Include both experiment result tables.
-- [ ] Include both required graphs.
-- [ ] Include findings/explanations.
-- [ ] Include SDK/open-source disclosure.
-- [ ] Include demo/Q&A notes.
+- [x] Include assignment goal.
+- [x] Include architecture: OBS, RTMP, modified FFmpeg, DASH chunks/segments, NGINX, node-gpac-dash, dash.js.
+- [x] Include FFmpeg source modification and build verification.
+- [x] Include setup validation and chunked transfer proof.
+- [x] Include both experiment result tables.
+- [x] Include both required graphs.
+- [x] Include findings/explanations.
+- [x] Include SDK/open-source disclosure.
+- [x] Include demo/Q&A notes.
 - [x] Include screenshots only from real runs.
   - Current saved screenshot evidence is limited to `docs/report-assets/browser-chunked-transfer.png`.
 - [x] Run docs coverage tests.
@@ -321,15 +321,15 @@
 - [ ] Record QR-based latency separately from required manual wall-clock measurements.
 - [x] Add tests for QR timestamp payload formatting and latency subtraction logic.
 - [x] Add `docs/qr-bonus.md`.
-- [ ] Add bonus section to final report.
+- [x] Add bonus section to final report.
 - [x] Re-run `make validate-pr`.
 
 ## Task 16: Prepare Submission Bundle
 
-- [ ] Verify final report is complete.
-- [ ] Verify code, docs, results, screenshots, and report are included.
-- [ ] Verify SDK/open-source disclosure is complete.
-- [ ] Verify no generated runtime junk or local secrets are included.
+- [x] Verify final report is complete.
+- [x] Verify code, docs, results, screenshots, and report are included.
+- [x] Verify SDK/open-source disclosure is complete.
+- [x] Verify no generated runtime junk or local secrets are included.
 - [ ] Create `lastname_project3.zip` or group lastname format if needed.
 - [ ] Inspect zip contents before submission.
 - [ ] Do not claim submission-ready until local validation and artifact inspection pass.
