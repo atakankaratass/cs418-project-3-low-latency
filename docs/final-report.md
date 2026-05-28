@@ -8,7 +8,7 @@
 
 **Project:** Project 3 - Low Latency
 
-**Report status:** Final report draft for submission. All latency numbers in this report come from real local measurements saved in `docs/latency-measurements.csv`.
+**Report status:** Final report for submission. All latency numbers in this report come from real local measurements saved in `docs/latency-measurements.csv`.
 
 ## 1. Introduction
 
