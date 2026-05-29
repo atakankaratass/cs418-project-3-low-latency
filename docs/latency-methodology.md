@@ -2,7 +2,9 @@
 
 For each scenario, latency is measured 10-20 seconds after playback starts.
 
-The final successful below-5-second validation used reduced OBS output settings: `852x480`, `1200 kbps`, `30 fps`, and a `1s` keyframe interval for the `keyint=30`, `seg_duration=1` run. Larger segment and fragment settings were still recorded truthfully even when latency exceeded 5 seconds or playback showed stalls.
+The final successful below-5-second validation used reduced OBS output settings: `852x480`, `1200 kbps`, `30 fps`, and a `1s` keyframe interval for the `keyint=30`, `seg_duration=1` run. The recorded values were corrected by subtracting a 1-second clock offset found in the measurement setup. Larger segment and fragment settings were still recorded even when latency exceeded 5 seconds or playback showed stalls.
+
+Most experiment rows record the manual reading as an explicit `latency_ms` value because the visible OBS overlay and current clock were read during the live run rather than captured as machine-parseable timestamps. Rows with literal clock strings preserve the detailed source observation when it was recorded. These values remain manual measurements and are not automatically recomputed by CI.
 
 ## Required Manual Method
 

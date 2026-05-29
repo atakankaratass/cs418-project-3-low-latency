@@ -4,8 +4,8 @@ These commands are generated from the assignment experiment matrix. They do not 
 
 ## Manual Evidence Gates
 
-- Browser inspector gate: pending manual confirmation of chunked transfer encoding for DASH media segment responses.
-- Wall-clock latency gate: pending manual measurement from the OBS overlay and system clock.
+- Browser inspector gate: confirmed for DASH media segment responses; screenshot evidence is saved as `docs/report-assets/browser-chunked-transfer.png`.
+- Wall-clock latency gate: completed from the OBS overlay and system clock; recorded measurements are in `docs/latency-measurements.csv`.
 
 ## Segment Duration Commands
 

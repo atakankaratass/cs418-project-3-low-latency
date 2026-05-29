@@ -27,5 +27,5 @@ params.endTimer = setTimeout(function () {
 ## Live Debugging Result
 
 - `seg_duration=4`, `keyint=120` streamed but produced repeated dash.js `PLAYBACK_WAITING` events near segment boundaries.
-- `seg_duration=2`, `keyint=60`, `-ldash 1`, and `-frag_type every_frame` was observed to play smoothly.
-- Browser inspector chunked-transfer evidence and formal wall-clock latency measurements still need to be captured before final report claims.
+- `seg_duration=2`, `keyint=60`, `-ldash 1`, and `-frag_type every_frame` was observed to play smoothly during tuning.
+- Browser inspector chunked-transfer evidence was captured, and wall-clock latency measurements were recorded before final report claims.

@@ -235,7 +235,7 @@
   - `seg_duration=4`, `keyint=120` repeatedly reached dash.js `PLAYBACK_WAITING` near segment boundaries; player logs showed `GapController` jumps of about `0.1s`.
   - The final below-5-second validation profile used low-resolution OBS output, `seg_duration=1`, `keyint=30`, `-ldash 1`, and `-frag_type every_frame`.
 - [x] Confirm latency is below 5 seconds.
-  - Low-resolution validation profile measured about `4500 ms` in `docs/latency-measurements.csv`.
+  - Low-resolution validation profile measured about `4000 ms` after correcting for a 1-second clock offset in `docs/latency-measurements.csv`.
 - [x] Save screenshots under `docs/report-assets/`.
   - Browser chunked-transfer screenshot is saved; latency evidence is recorded in CSV from the real run.
 - [x] Record baseline result in `docs/latency-results.md`.

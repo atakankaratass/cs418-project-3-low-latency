@@ -15,6 +15,15 @@ describe("plot specs", () => {
         notes: "manual",
       },
       {
+        experimentType: "segment",
+        keyint: 120,
+        segDuration: 4,
+        observedSystemTime: "2026-05-28T12:01:05.250Z",
+        embeddedVideoTime: "2026-05-28T12:01:00.250Z",
+        latencyMs: 5000,
+        notes: "final selected run",
+      },
+      {
         experimentType: "fragment",
         keyint: 120,
         segDuration: 4,
@@ -29,7 +38,7 @@ describe("plot specs", () => {
     expect(specs.segment).toEqual({
       xLabel: "seg_duration",
       yLabel: "latency_ms",
-      points: [[4, 4250]],
+      points: [[4, 5000]],
     });
     expect(specs.fragment).toEqual({
       xLabel: "frag_duration",

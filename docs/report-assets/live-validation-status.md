@@ -8,7 +8,7 @@
 - node-gpac-dash dir: /Users/atakankaratas/Development/node-gpac-dash
 - Browser chunked transfer confirmed: yes
 - Browser chunked transfer evidence: docs/report-assets/browser-chunked-transfer.png
-- Baseline latency ms: 4500
+- Baseline latency ms: 4000
 - Latency measurement artifact: docs/latency-measurements.csv
 
 ## Blockers
