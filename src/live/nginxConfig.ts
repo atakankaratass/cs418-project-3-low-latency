@@ -15,6 +15,10 @@ events {
 
 http {
   default_type  application/octet-stream;
+  types {
+    text/html html;
+    application/javascript bundle;
+  }
   sendfile      on;
   tcp_nopush    on;
   tcp_nodelay   on;

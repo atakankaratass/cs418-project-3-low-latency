@@ -18,6 +18,8 @@ describe("live run artifacts", () => {
     expect(config).toContain("proxy_http_version 1.1;");
     expect(config).toContain("proxy_buffering off;");
     expect(config).toContain("add_header Access-Control-Allow-Origin *;");
+    expect(config).toContain("text/html html;");
+    expect(config).toContain("application/javascript bundle;");
     expect(config).not.toContain("include mime.types;");
   });
 
@@ -27,7 +29,7 @@ describe("live run artifacts", () => {
     expect(html).toContain("https://cdn.dashjs.org/v4.7.4/dash.all.min.js");
     expect(html).toContain("/dash/live.mpd");
     expect(html).toContain("dashjs.MediaPlayer().create()");
-    expect(html).toContain("liveDelay: 2");
+    expect(html).toContain("liveDelay: 4");
     expect(html).toContain("dash.js applied settings:");
     expect(html).toContain("PLAYBACK_STALLED");
     expect(html).toContain("PLAYBACK_WAITING");

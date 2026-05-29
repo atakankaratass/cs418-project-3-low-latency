@@ -139,7 +139,7 @@ For this experiment, segment duration was varied while keeping the stream at 30 
 
 The results show that smaller segment duration helped latency. The `seg_duration=1` run was the strongest result, while `seg_duration=2`, `seg_duration=3`, and `seg_duration=4` clustered just above the 5-second boundary after the clock-offset correction. As segment duration increased further, latency generally increased. This makes sense because the player and DASH live window have more segment-level delay to work with. Larger segments were usually stable, but they did not meet the low-latency target.
 
-![Latency vs Segment Duration](report-assets/segment-latency.svg)
+![Latency vs Segment Duration](report-assets/segment-latency.png)
 
 ## 9. Fragment Duration Experiment
 
@@ -160,7 +160,7 @@ The fragment-duration experiment did not produce a better result than the 1-seco
 
 This was another difficult part of the project. At first I expected smaller fragments to always reduce the latency a lot. In practice, the full setup also depended on OBS ingest delay, DASH live delay, segment duration, audio/video alignment, and browser behavior. The fragment size alone did not solve the latency problem when `seg_duration` stayed at 4 seconds.
 
-![Latency vs Fragment Duration](report-assets/fragment-latency.svg)
+![Latency vs Fragment Duration](report-assets/fragment-latency.png)
 
 ## 10. Testing And Automation
 
@@ -186,7 +186,7 @@ I also implemented an optional QR timestamp overlay. It generates a QR payload i
 cs418-project3-ts=<ISO timestamp>
 ```
 
-This can be added to OBS as a Browser Source. The helper code and tests for QR timestamp formatting and latency subtraction are included. However, I did not complete a real QR decode measurement from the received video frame. Because of that, I am not using QR latency as the required validation result. The required validation result in this report is still the wall-clock overlay measurement.
+The overlay can be added to OBS as a Browser Source. The current implementation serves the QR generator locally from `public/qrcode.bundle`, so the overlay does not depend on a remote CDN during the live demo. The helper code and tests for QR timestamp formatting and latency subtraction are included. However, I did not complete a validated QR decode measurement from the received video frame. Because of that, I am not using QR latency as the required validation result. The required validation result in this report is still the wall-clock overlay measurement.
 
 ## 12. Main Difficulties
 

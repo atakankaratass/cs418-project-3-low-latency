@@ -17,19 +17,37 @@
       <canvas id="qr" width="132" height="132"></canvas>
       <div>
         <div id="label">QR timestamp overlay</div>
-        <div id="payload"></div>
       </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+    <script src="/qrcode.bundle"></script>
     <script>
       const prefix = "cs418-project3-ts=";
       const canvas = document.getElementById("qr");
-      const payloadLabel = document.getElementById("payload");
 
       function updateQr() {
         const payload = prefix + new Date().toISOString();
-        payloadLabel.textContent = payload;
-        QRCode.toCanvas(canvas, payload, { margin: 1, width: 132, errorCorrectionLevel: "M" });
+        const qr = qrcode(0, "M");
+        qr.addData(payload);
+        qr.make();
+
+        const context = canvas.getContext("2d");
+        const moduleCount = qr.getModuleCount();
+        const margin = 4;
+        const cellSize = Math.floor((canvas.width - margin * 2) / moduleCount);
+        const qrSize = cellSize * moduleCount;
+        const offset = Math.floor((canvas.width - qrSize) / 2);
+
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#000";
+
+        for (let row = 0; row < moduleCount; row += 1) {
+          for (let col = 0; col < moduleCount; col += 1) {
+            if (qr.isDark(row, col)) {
+              context.fillRect(offset + col * cellSize, offset + row * cellSize, cellSize, cellSize);
+            }
+          }
+        }
       }
 
       updateQr();

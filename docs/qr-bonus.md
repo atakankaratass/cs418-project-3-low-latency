@@ -25,3 +25,4 @@ This generates `public/qr-overlay.html`.
 - Decode the QR code from a received video frame.
 - Subtract the decoded timestamp from the current system clock.
 - Record QR-based latency separately from the required wall-clock overlay measurements.
+- Do not report QR-based latency unless the decode measurement was actually performed and recorded.

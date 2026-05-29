@@ -22,6 +22,21 @@
   <body>
     <h1>CS 418 Project 3 Low Latency Player</h1>
     <video id="video" autoplay muted playsinline></video>
+
+    <div id="qr-latency-panel" style="width: min(100%, 960px); margin-top: 1rem; padding: 1rem; background: #161a22; border: 1px solid #3a4252; border-radius: 4px; box-sizing: border-box;">
+      <h3 style="margin-top: 0; color: #f6f7fb; font-size: 1rem; border-bottom: 1px solid #3a4252; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <span>QR-Based Latency Monitor</span>
+      </h3>
+      <div id="qr-status" style="font-size: 0.9rem; color: #8892b0;">Searching for QR code in video stream...</div>
+      <div id="qr-result" style="display: none;">
+        <div style="font-size: 1.1rem; color: #34d399; font-weight: bold; margin-bottom: 0.25rem;">
+          Measured Latency: <span id="qr-latency-value" style="color: #9ad7ff; font-family: monospace;">-- ms</span>
+        </div>
+        <div style="font-size: 0.85rem; color: #8892b0;">
+          Last Decoded Time: <span id="qr-last-ts" style="font-family: monospace;">--</span>
+        </div>
+      </div>
+    </div>
     
     <div id="logs">
       <h3 style="margin-top: 0; color: #f6f7fb; font-size: 1rem; border-bottom: 1px solid #3a4252; padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
@@ -32,6 +47,7 @@
     </div>
 
     <script src="https://cdn.dashjs.org/v4.7.4/dash.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script>
       const logContainer = document.getElementById("log-container");
       function log(msg, type = "") {
@@ -67,13 +83,56 @@
       const video = document.getElementById("video");
       video.controls = true;
 
+      // QR Code Detection Setup
+      const qrCanvas = document.createElement("canvas");
+      const qrContext = qrCanvas.getContext("2d", { willReadFrequently: true });
+      const qrStatus = document.getElementById("qr-status");
+      const qrResult = document.getElementById("qr-result");
+      const qrLatencyValue = document.getElementById("qr-latency-value");
+      const qrLastTs = document.getElementById("qr-last-ts");
+
+      function scanQrCode() {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          qrCanvas.width = video.videoWidth;
+          qrCanvas.height = video.videoHeight;
+          qrContext.drawImage(video, 0, 0, qrCanvas.width, qrCanvas.height);
+          const imageData = qrContext.getImageData(0, 0, qrCanvas.width, qrCanvas.height);
+          try {
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            if (code) {
+              const payload = code.data;
+              const prefix = "cs418-project3-ts=";
+              if (payload.startsWith(prefix)) {
+                const tsStr = payload.slice(prefix.length);
+                const ts = Date.parse(tsStr);
+                const now = Date.now();
+                const latency = now - ts;
+                
+                qrStatus.style.display = "none";
+                qrResult.style.display = "block";
+                qrLatencyValue.textContent = latency + " ms (" + (latency / 1000).toFixed(3) + " s)";
+                const localTime = new Date(ts).toLocaleTimeString();
+                qrLastTs.textContent = localTime;
+              }
+            }
+          } catch (err) {
+            // Ignore temporary frame decoding errors
+          }
+        }
+        requestAnimationFrame(scanQrCode);
+      }
+
+      video.addEventListener("play", () => {
+        scanQrCode();
+      });
+
       log("Initializing player");
       const player = dashjs.MediaPlayer().create();
       log("dash.js version: " + player.getVersion());
       player.updateSettings({
         streaming: {
           delay: {
-            liveDelay: 2,
+            liveDelay: 4,
           },
           liveCatchup: {
             enabled: true,
@@ -121,3 +180,4 @@
     </script>
   </body>
 </html>
+
