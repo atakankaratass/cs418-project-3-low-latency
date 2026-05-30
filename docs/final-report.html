@@ -1,1 +1,1146 @@
-<!doctype html><html><head><meta charset="utf-8"><title>CS 418 Project 3 Final Report</title></head><body style="font-family:Arial,Helvetica,sans-serif;font-size:11pt;line-height:1.35;margin:36pt;color:#111;text-align:left;"><h1 style="font-size:20pt;color:#17365d;margin:0 0 14pt 0;text-align:left;">CS 418 Project 3 Final Report: Low Latency DASH Streaming</h1><p style="margin:0 0 8pt 0;text-align:left;"><strong>GitHub Repository:</strong> <a href="https://github.com/atakankaratass/cs418-project-3-low-latency">https://github.com/atakankaratass/cs418-project-3-low-latency</a></p><p style="margin:0 0 8pt 0;text-align:left;"><strong>Student:</strong> Atakan Karatas</p><p style="margin:0 0 8pt 0;text-align:left;"><strong>Course:</strong> CS 418</p><p style="margin:0 0 8pt 0;text-align:left;"><strong>Project:</strong> Project 3 - Low Latency</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">1. Introduction</h2><p style="margin:0 0 8pt 0;text-align:left;">This report presents the design, implementation, and evaluation of a low-latency DASH streaming pipeline. The system combines OBS for live capture, a source-modified FFmpeg build for DASH packaging, NGINX and node-gpac-dash for HTTP chunked delivery, and dash.js for browser playback. The main technical focus was reducing glass-to-glass latency while keeping playback stable enough for live viewing in the browser.</p><p style="margin:0 0 8pt 0;text-align:left;">Several encoder and DASH packaging configurations were tested before reaching a stable low-latency profile. After correcting for a 1-second clock offset in the measurement setup, some settings produced smooth playback but stayed around 5-7 seconds, while more aggressive settings reduced delay at the cost of dash.js stalls. The most reliable validation profile used reduced OBS output settings with 1-second DASH segments and reached approximately <strong>4.0 seconds</strong> of adjusted measured latency.</p><p style="margin:0 0 8pt 0;text-align:left;">The following sections describe the pipeline architecture, the FFmpeg source modification, the validation evidence, the segment-duration and fragment-duration experiments, and the main implementation difficulties.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">2. System Architecture</h2><p style="margin:0 0 8pt 0;text-align:left;">The implemented path is shown below as a live-delivery chain rather than a single command-style line:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Stage</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Component</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Role in the stream</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">OBS</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Captures the live source and clock overlay</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">2</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">RTMP</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Carries the live feed into FFmpeg</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">3</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Modified FFmpeg</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Packages LL-DASH chunks and segments</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">4</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">NGINX</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Serves the player and proxies DASH media</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Modified node-gpac-dash</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Sends media using chunked transfer</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">6</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">dash.js browser player</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Plays the live DASH stream</td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">OBS captures the source and burns the current wall-clock time into the video frame. FFmpeg listens for RTMP input from OBS and writes DASH output to local disk. NGINX serves the browser player and proxies <code>/dash/</code> requests to node-gpac-dash. The modified node-gpac-dash server sends media segments using HTTP chunked transfer encoding, so the player can receive partial segment data before the whole segment is finished.</p><p style="margin:0 0 8pt 0;text-align:left;">The browser player uses dash.js and loads the live DASH manifest from <code>/dash/live.mpd</code>. The page keeps the interface simple and only shows the video player plus debug logs that are useful during validation.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">3. FFmpeg Source Build And Required Source Modification</h2><p style="margin:0 0 8pt 0;text-align:left;">The project uses a locally compiled FFmpeg build rather than a pre-installed package. This was necessary because the DASH muxer source needed a small change before FFmpeg could write media segments in the form required by the live chunked-delivery server.</p><p style="margin:0 0 8pt 0;text-align:left;">The tutorial explains that FFmpeg normally writes partial DASH media segments with a temporary <code>.tmp</code> extension and then renames them later. This causes a problem for node-gpac-dash because node-gpac-dash tries to read the live segment while FFmpeg is still writing it. To fix that, I changed the media segment temp path so FFmpeg writes directly to the final <code>.m4s</code> file name.</p><p style="margin:0 0 8pt 0;text-align:left;">The source change is small, but it is central to the low-latency path:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Build state</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">DASH muxer temp-path behavior</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Original FFmpeg</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>snprintf(os-&gt;temp_path, sizeof(os-&gt;temp_path), use_rename ? &quot;%s.tmp&quot; : &quot;%s&quot;, os-&gt;full_path);</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Modified local build</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>snprintf(os-&gt;temp_path, sizeof(os-&gt;temp_path), use_rename ? &quot;%s&quot; : &quot;%s&quot;, os-&gt;full_path);</code></td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">This removes the temporary <code>.tmp</code> extension so node-gpac-dash can read the live <code>.m4s</code> file while FFmpeg is still appending media data. The change matches the tutorial and Appendix A requirement.</p><p style="margin:0 0 8pt 0;text-align:left;">The compiled binary was verified with the required build capabilities:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Verification item</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Confirmed value</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">DASH demuxer</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>--enable-demuxer=dash</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">XML support</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>--enable-libxml2</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">DASH muxer flags</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-ldash</code>, <code>-streaming</code>, <code>-frag_duration</code>, <code>-frag_type</code>, <code>-use_template</code>, <code>-use_timeline</code>, <code>-utc_timing_url</code>, <code>-window_size</code></td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">The DASH muxer was also checked for the low-latency options used later in the pipeline, including <code>-ldash</code>, <code>-streaming</code>, <code>-frag_duration</code>, <code>-frag_type</code>, <code>-use_template</code>, <code>-use_timeline</code>, <code>-utc_timing_url</code>, and <code>-window_size</code>.</p><p style="text-align:center;margin:8pt 0 12pt 0;"><img src="report-assets/ffmpeg-dash-options.png" alt="Compiled FFmpeg DASH muxer options" style="max-width:100%;height:auto;"></p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">4. Implementation Details</h2><p style="margin:0 0 8pt 0;text-align:left;">The FFmpeg command was built around the low-latency DASH options needed by the pipeline. The most important options were organized as follows:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Area</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Option or setting</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Purpose</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">OBS ingest</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-f flv -listen 1 -i rtmp://127.0.0.1/live/stream</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Receives the RTMP stream from OBS</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">DASH mode</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-ldash 1</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Enables low-latency DASH behavior</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Chunk writing</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-streaming 1</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Writes fragmented output progressively</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Manifest style</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-use_template 1 -use_timeline 0</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Matches the tutorial&#x27;s SegmentTemplate setup</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Clock sync</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-utc_timing_url &#x27;https://time.akamai.com/?iso&#x27;</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Lets dash.js synchronize live timing</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Segment baseline</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-frag_type every_frame</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Used for the segment-duration validation profile</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Fragment tests</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-frag_duration &lt;value&gt; -frag_type duration</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Used when testing different fragment durations</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Live window</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>-window_size 2 -extra_window_size 2</code></td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Keeps the playback window short in final measured runs</td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">For OBS, I first tried higher quality settings, but they introduced too much delay. Reducing the output resolution and bitrate produced a more practical live profile:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Profile setting</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Final value</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Output resolution</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>852x480</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Scaling</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">bicubic</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Bitrate</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>1200 kbps</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">FPS</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>30</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Keyframe interval</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>1 second</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">FFmpeg keyint</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>30</code></td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Segment duration</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;"><code>1 second</code></td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">This was the setup that produced about 4.0 seconds of adjusted latency without visible foreground playback stalls.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">5. NGINX And node-gpac-dash</h2><p style="margin:0 0 8pt 0;text-align:left;">NGINX serves the player page and proxies DASH media requests to node-gpac-dash. Proxy buffering is disabled for the DASH path, because buffering would delay media chunks and work against the low-latency goal.</p><p style="margin:0 0 8pt 0;text-align:left;">The local node-gpac-dash checkout was also modified. The original behavior did not work correctly with <code>chunkCount=0</code>, because it could end the response before media data was sent. I changed the local checkout so <code>chunkCount=0</code> means disabled. I also added a short EOF timeout so video and audio responses can finish independently after FFmpeg stops appending to the current <code>.m4s</code> file.</p><p style="margin:0 0 8pt 0;text-align:left;">This part was one of the harder parts of the project. At first the stream looked like it had no media data. The root cause was not the browser player. It was node-gpac-dash ending the response too early when <code>chunkCount</code> was 0. After fixing this behavior, the media started flowing correctly. Later I also saw that audio and video chunk counts did not always match, so a single global <code>chunks-per-segment</code> value was not reliable. A short EOF timeout was more stable for the local live setup.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">6. Browser Chunked Transfer Validation</h2><p style="margin:0 0 8pt 0;text-align:left;">The browser-side validation focused on whether media was delivered progressively rather than only after a full segment was completed. I verified this in the browser inspector Network tab. The captured request details showed <code>Transfer-Encoding: chunked</code> for media segment responses.</p><p style="text-align:center;margin:8pt 0 12pt 0;"><img src="report-assets/browser-chunked-transfer.png" alt="Browser inspector showing chunked transfer for DASH media segments" style="max-width:100%;height:auto;"></p><p style="margin:0 0 8pt 0;text-align:left;">This was important because normal DASH playback can work with full segment downloads, but that would not prove the low-latency path. The chunked transfer evidence shows that node-gpac-dash was actually serving the media progressively.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">7. Live Latency Validation</h2><p style="margin:0 0 8pt 0;text-align:left;">Latency was measured by comparing the current clock time with the wall-clock time embedded in the video frame by OBS. I also used an internet clock page during manual measurements, but the important value is the difference between the current time and the visible video timestamp.</p><p style="margin:0 0 8pt 0;text-align:left;">The successful below-5-second validation result was:</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Setting</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Value</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">OBS output</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">852x480</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">OBS bitrate</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1200 kbps</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">FPS</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">30</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Keyframe interval</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1 second</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">FFmpeg keyint</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">30</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Segment duration</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1 second</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Measured latency</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">about 4000 ms</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Playback</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">no visible stalls</td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">I also noticed that changing tabs or moving away from the player could cause playback waiting events. When the player tab stayed foreground, the low-resolution 1-second segment run stayed stable for 1-2 minutes. When I switched tabs, Chrome/dash.js sometimes stalled and then used live catchup to return near the live edge. For this reason, the final measurements were done with the player foreground.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">8. Segment Duration Experiment</h2><p style="margin:0 0 8pt 0;text-align:left;">For this experiment, segment duration was varied while keeping the stream at 30 fps. The keyframe interval was matched to the segment length.</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Segment duration (s)</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Keyint</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Latency (ms)</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Playback observation</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">30</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">4000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable and below 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">2</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">60</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">3</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">90</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">4</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">120</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">150</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">7000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">6</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">180</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">7500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">The results show that smaller segment duration helped latency. The <code>seg_duration=1</code> run was the strongest result, while <code>seg_duration=2</code>, <code>seg_duration=3</code>, and <code>seg_duration=4</code> clustered just above the 5-second boundary after the clock-offset correction. As segment duration increased further, latency generally increased. This makes sense because the player and DASH live window have more segment-level delay to work with. Larger segments were usually stable, but they did not meet the low-latency target.</p><p style="text-align:center;margin:8pt 0 12pt 0;"><img src="report-assets/segment-latency.png" alt="Latency vs Segment Duration" style="max-width:100%;height:auto;"></p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">9. Fragment Duration Experiment</h2><p style="margin:0 0 8pt 0;text-align:left;">For the fragment experiment, the segment duration was fixed at 4 seconds with <code>keyint=120</code>. The OBS output stayed at 852x480 and 1200 kbps, while <code>frag_duration</code> was changed using <code>-frag_type duration</code>.</p><table style="border-collapse:collapse;width:100%;margin:8pt 0 12pt 0;font-size:10pt;"><tr><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Fragment duration (s)</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Latency (ms)</th><th style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;background:#eaf2f8;">Playback observation</th></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">0.033</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable, near 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">0.066</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">0.1</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">0.2</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">5500</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">0.5</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">6000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Stable but above 5 s</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">1</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">6000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Repeated playback waiting</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">2</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">6000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Waiting and gap correction</td></tr><tr><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">4</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">9000</td><td style="border:1px solid #888;padding:5pt;text-align:left;vertical-align:top;">Audio buffer instability</td></tr></table><p style="margin:0 0 8pt 0;text-align:left;">The fragment-duration experiment did not produce a better result than the 1-second segment validation profile. With fixed 4-second segments, the adjusted measured latency stayed around 5-6 seconds for the smaller fragment values. Larger fragment values caused more visible playback waiting and audio buffer problems. In particular, <code>frag_duration=1</code>, <code>2</code>, and <code>4</code> showed repeated dash.js <code>PLAYBACK_WAITING</code> and <code>GapController</code> jumps.</p><p style="margin:0 0 8pt 0;text-align:left;">This was another difficult part of the project. At first I expected smaller fragments to always reduce the latency a lot. In practice, the full setup also depended on OBS ingest delay, DASH live delay, segment duration, audio/video alignment, and browser behavior. The fragment size alone did not solve the latency problem when <code>seg_duration</code> stayed at 4 seconds.</p><p style="text-align:center;margin:8pt 0 12pt 0;"><img src="report-assets/fragment-latency.png" alt="Latency vs Fragment Duration" style="max-width:100%;height:auto;"></p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">10. Testing And Automation</h2><p style="margin:0 0 8pt 0;text-align:left;">Automated checks were used to keep the implementation and documentation consistent. I used TypeScript scripts to generate experiment matrices, FFmpeg command checklists, latency reports, live validation status, and QR overlay files.</p><p style="margin:0 0 8pt 0;text-align:left;">The automated validation command is:</p><pre style="font-family:Consolas,Menlo,monospace;background-color:#f4f4f4;padding:6pt;white-space:pre-wrap;margin:6pt 0 10pt 0;text-align:left;"><code>make validate-pr</code></pre><p style="margin:0 0 8pt 0;text-align:left;">This command runs linting, type checking, tests, build checks, environment validation, experiment matrix generation, and latency report generation.</p><p style="margin:0 0 8pt 0;text-align:left;">GitHub Actions is also configured for project checks. The project uses ESLint, TypeScript typecheck, Vitest tests, Prettier, Husky, and lint-staged. This helped catch mistakes in generated files and scripts. For example, one latency CSV issue was fixed by adding parser support for explicit <code>latency_ms</code> values when the observed timestamps are not ISO timestamps.</p><p style="margin:0 0 8pt 0;text-align:left;">I also used OpenCode and Antigravity during development to automate repetitive checks, run tests, and generate supporting files. These tools were used as development assistance, not as a replacement for live validation. The actual screenshots, latency measurements, and browser inspector evidence came from real local runs.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">11. QR Code Bonus</h2><p style="margin:0 0 8pt 0;text-align:left;">I also implemented an optional QR timestamp overlay. It generates a QR payload in this format:</p><pre style="font-family:Consolas,Menlo,monospace;background-color:#f4f4f4;padding:6pt;white-space:pre-wrap;margin:6pt 0 10pt 0;text-align:left;"><code>cs418-project3-ts=&lt;ISO timestamp&gt;</code></pre><p style="margin:0 0 8pt 0;text-align:left;">This can be added to OBS as a Browser Source. The helper code and tests for QR timestamp formatting and latency subtraction are included. However, I did not complete a real QR decode measurement from the received video frame. Because of that, I am not using QR latency as the required validation result. The required validation result in this report is still the wall-clock overlay measurement.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">12. Main Difficulties</h2><p style="margin:0 0 8pt 0;text-align:left;">The biggest difficulty was that every part of the pipeline could add latency or cause stalls. At the beginning, the stream did not send media correctly because node-gpac-dash ended segment responses too early when <code>chunkCount=0</code>. After that was fixed, another issue appeared around segment boundaries. dash.js showed <code>PLAYBACK_WAITING</code>, and the logs showed <code>GapController</code> jumping around <code>0.1s</code>. This happened more with some 4-second segment and fragment configurations.</p><p style="margin:0 0 8pt 0;text-align:left;">Another difficulty was measuring latency consistently. I recorded the higher latency values too, including runs that were stable but above 5 seconds and runs that had stalls. After identifying a 1-second clock offset in the measurement setup, I adjusted the recorded latency values by subtracting 1000 ms. This made the final results more accurate while keeping the same relative trend: the 1-second segment low-resolution profile was the strongest configuration in this local environment.</p><p style="margin:0 0 8pt 0;text-align:left;">The FFmpeg source modification also had to be checked carefully. It was not enough to use Homebrew FFmpeg or a random system FFmpeg. I verified the source-built binary, the configure flags, and the actual <code>dashenc.c</code> patch.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">13. Conclusion</h2><p style="margin:0 0 8pt 0;text-align:left;">The final implementation uses OBS, RTMP, modified source-built FFmpeg, LL-DASH packaging, NGINX, modified node-gpac-dash, and dash.js. I verified browser chunked transfer encoding and measured latency using the wall-clock timestamp in the video.</p><p style="margin:0 0 8pt 0;text-align:left;">The final passing profile was the low-resolution <code>seg_duration=1</code>, <code>keyint=30</code> run, with about <strong>4.0 seconds</strong> adjusted latency and no visible foreground playback stalls. The segment-duration experiment showed that larger segment durations generally increased latency. The fragment-duration experiment showed that changing fragment duration alone did not beat the 1-second segment profile, and larger fragment durations caused repeated playback waiting.</p><p style="margin:0 0 8pt 0;text-align:left;">Overall, the project reached the required below-5-second latency, but it also showed that low-latency streaming is sensitive to encoder settings, segment duration, player live delay, server behavior, and browser playback state.</p><h2 style="font-size:15pt;color:#17365d;margin:18pt 0 8pt 0;text-align:left;">References</h2><p style="margin:0 0 8pt 0;text-align:left;">CS 418. (2026). <em>Project 3: Low Latency</em> [Course assignment handout]. <code>Low Latency.docx</code>.</p><p style="margin:0 0 8pt 0;text-align:left;">Zhang, B. (n.d.). <em>Low-latency DASH streaming using open-source tools</em>. Medium. Retrieved May 29, 2026, from <a href="https://bozhang-26963.medium.com/low-latency-dash-streaming-using-open-source-tools-f93142ece69d">https://bozhang-26963.medium.com/low-latency-dash-streaming-using-open-source-tools-f93142ece69d</a></p><p style="margin:0 0 8pt 0;text-align:left;">FFmpeg Developers. (n.d.). <em>FFmpeg formats documentation</em>. Retrieved May 29, 2026, from <a href="https://ffmpeg.org/ffmpeg-formats.html">https://ffmpeg.org/ffmpeg-formats.html</a></p><p style="margin:0 0 8pt 0;text-align:left;">OBS Project. (n.d.). <em>OBS Studio</em>. Retrieved May 29, 2026, from <a href="https://obsproject.com">https://obsproject.com</a></p><p style="margin:0 0 8pt 0;text-align:left;">FFmpeg Developers. (n.d.). <em>Compilation guide for Ubuntu</em>. FFmpeg Wiki. Retrieved May 29, 2026, from <a href="https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu">https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu</a></p><p style="margin:0 0 8pt 0;text-align:left;">DASH Industry Forum. (n.d.). <em>Low Latency DASH change request</em> [Technical change request]. Referenced by Zhang (n.d.).</p></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>CS 418 Project 3 Final Report</title>
+  </head>
+  <body
+    style="
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11pt;
+      line-height: 1.35;
+      margin: 36pt;
+      color: #111;
+      text-align: left;
+    "
+  >
+    <h1 style="font-size: 20pt; color: #17365d; margin: 0 0 14pt 0; text-align: left">
+      CS 418 Project 3 Final Report: Low Latency DASH Streaming
+    </h1>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      <strong>GitHub Repository:</strong>
+      <a href="https://github.com/atakankaratass/cs418-project-3-low-latency"
+        >https://github.com/atakankaratass/cs418-project-3-low-latency</a
+      >
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left"><strong>Student:</strong> Atakan Karatas</p>
+    <p style="margin: 0 0 8pt 0; text-align: left"><strong>Course:</strong> CS 418</p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      <strong>Project:</strong> Project 3 - Low Latency
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      1. Introduction
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This report presents the design, implementation, and evaluation of a low-latency DASH
+      streaming pipeline. The system combines OBS for live capture, a source-modified FFmpeg build
+      for DASH packaging, NGINX and node-gpac-dash for HTTP chunked delivery, and dash.js for
+      browser playback. The main technical focus was reducing glass-to-glass latency while keeping
+      playback stable enough for live viewing in the browser.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Several encoder and DASH packaging configurations were tested before reaching a stable
+      low-latency profile. After correcting for a 1-second clock offset in the measurement setup,
+      some settings produced smooth playback but stayed around 5-7 seconds, while more aggressive
+      settings reduced delay at the cost of dash.js stalls. The most reliable validation profile
+      used reduced OBS output settings with 1-second DASH segments and reached approximately
+      <strong>4.0 seconds</strong> of adjusted measured latency.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The following sections describe the pipeline architecture, the FFmpeg source modification, the
+      validation evidence, the segment-duration and fragment-duration experiments, and the main
+      implementation difficulties.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      2. System Architecture
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The implemented path is shown below as a live-delivery chain rather than a single
+      command-style line:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Stage
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Component
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Role in the stream
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          OBS
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Captures the live source and clock overlay
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          2
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          RTMP
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Carries the live feed into FFmpeg
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          3
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Modified FFmpeg
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Packages LL-DASH chunks and segments
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          4
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          NGINX
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Serves the player and proxies DASH media
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Modified node-gpac-dash
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Sends media using chunked transfer
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          6
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          dash.js browser player
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Plays the live DASH stream
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      OBS captures the source and burns the current wall-clock time into the video frame. FFmpeg
+      listens for RTMP input from OBS and writes DASH output to local disk. NGINX serves the browser
+      player and proxies <code>/dash/</code> requests to node-gpac-dash. The modified node-gpac-dash
+      server sends media segments using HTTP chunked transfer encoding, so the player can receive
+      partial segment data before the whole segment is finished.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The browser player uses dash.js and loads the live DASH manifest from
+      <code>/dash/live.mpd</code>. The page keeps the interface simple and only shows the video
+      player plus debug logs that are useful during validation.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      3. FFmpeg Source Build And Required Source Modification
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The project uses a locally compiled FFmpeg build rather than a pre-installed package. This was
+      necessary because the DASH muxer source needed a small change before FFmpeg could write media
+      segments in the form required by the live chunked-delivery server.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The tutorial explains that FFmpeg normally writes partial DASH media segments with a temporary
+      <code>.tmp</code> extension and then renames them later. This causes a problem for
+      node-gpac-dash because node-gpac-dash tries to read the live segment while FFmpeg is still
+      writing it. To fix that, I changed the media segment temp path so FFmpeg writes directly to
+      the final <code>.m4s</code> file name.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The source change is small, but it is central to the low-latency path:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Build state
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          DASH muxer temp-path behavior
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Original FFmpeg
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code
+            >snprintf(os-&gt;temp_path, sizeof(os-&gt;temp_path), use_rename ? &quot;%s.tmp&quot; :
+            &quot;%s&quot;, os-&gt;full_path);</code
+          >
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Modified local build
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code
+            >snprintf(os-&gt;temp_path, sizeof(os-&gt;temp_path), use_rename ? &quot;%s&quot; :
+            &quot;%s&quot;, os-&gt;full_path);</code
+          >
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This removes the temporary <code>.tmp</code> extension so node-gpac-dash can read the live
+      <code>.m4s</code> file while FFmpeg is still appending media data. The change matches the
+      tutorial and Appendix A requirement.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The compiled binary was verified with the required build capabilities:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Verification item
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Confirmed value
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          DASH demuxer
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>--enable-demuxer=dash</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          XML support
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>--enable-libxml2</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          DASH muxer flags
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-ldash</code>, <code>-streaming</code>, <code>-frag_duration</code>,
+          <code>-frag_type</code>, <code>-use_template</code>, <code>-use_timeline</code>,
+          <code>-utc_timing_url</code>, <code>-window_size</code>
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The DASH muxer was also checked for the low-latency options used later in the pipeline,
+      including <code>-ldash</code>, <code>-streaming</code>, <code>-frag_duration</code>,
+      <code>-frag_type</code>, <code>-use_template</code>, <code>-use_timeline</code>,
+      <code>-utc_timing_url</code>, and <code>-window_size</code>.
+    </p>
+    <p style="text-align: center; margin: 8pt 0 12pt 0">
+      <img
+        src="report-assets/ffmpeg-dash-options.png"
+        alt="Compiled FFmpeg DASH muxer options"
+        style="max-width: 100%; height: auto"
+      />
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      4. Implementation Details
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The FFmpeg command was built around the low-latency DASH options needed by the pipeline. The
+      most important options were organized as follows:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Area
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Option or setting
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Purpose
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          OBS ingest
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-f flv -listen 1 -i rtmp://127.0.0.1/live/stream</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Receives the RTMP stream from OBS
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          DASH mode
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-ldash 1</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Enables low-latency DASH behavior
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Chunk writing
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-streaming 1</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Writes fragmented output progressively
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Manifest style
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-use_template 1 -use_timeline 0</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Matches the tutorial&#x27;s SegmentTemplate setup
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Clock sync
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-utc_timing_url &#x27;https://time.akamai.com/?iso&#x27;</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Lets dash.js synchronize live timing
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Segment baseline
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-frag_type every_frame</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Used for the segment-duration validation profile
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Fragment tests
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-frag_duration &lt;value&gt; -frag_type duration</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Used when testing different fragment durations
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Live window
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>-window_size 2 -extra_window_size 2</code>
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Keeps the playback window short in final measured runs
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      For OBS, I first tried higher quality settings, but they introduced too much delay. Reducing
+      the output resolution and bitrate produced a more practical live profile:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Profile setting
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Final value
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Output resolution
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>852x480</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Scaling
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          bicubic
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Bitrate
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>1200 kbps</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          FPS
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>30</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Keyframe interval
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>1 second</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          FFmpeg keyint
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>30</code>
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Segment duration
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          <code>1 second</code>
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This was the setup that produced about 4.0 seconds of adjusted latency without visible
+      foreground playback stalls.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      5. NGINX And node-gpac-dash
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      NGINX serves the player page and proxies DASH media requests to node-gpac-dash. Proxy
+      buffering is disabled for the DASH path, because buffering would delay media chunks and work
+      against the low-latency goal.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The local node-gpac-dash checkout was also modified. The original behavior did not work
+      correctly with <code>chunkCount=0</code>, because it could end the response before media data
+      was sent. I changed the local checkout so <code>chunkCount=0</code> means disabled. I also
+      added a short EOF timeout so video and audio responses can finish independently after FFmpeg
+      stops appending to the current <code>.m4s</code> file.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This part was one of the harder parts of the project. At first the stream looked like it had
+      no media data. The root cause was not the browser player. It was node-gpac-dash ending the
+      response too early when <code>chunkCount</code> was 0. After fixing this behavior, the media
+      started flowing correctly. Later I also saw that audio and video chunk counts did not always
+      match, so a single global <code>chunks-per-segment</code> value was not reliable. A short EOF
+      timeout was more stable for the local live setup.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      6. Browser Chunked Transfer Validation
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The browser-side validation focused on whether media was delivered progressively rather than
+      only after a full segment was completed. I verified this in the browser inspector Network tab.
+      The captured request details showed <code>Transfer-Encoding: chunked</code> for media segment
+      responses.
+    </p>
+    <p style="text-align: center; margin: 8pt 0 12pt 0">
+      <img
+        src="report-assets/browser-chunked-transfer.png"
+        alt="Browser inspector showing chunked transfer for DASH media segments"
+        style="max-width: 100%; height: auto"
+      />
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This was important because normal DASH playback can work with full segment downloads, but that
+      would not prove the low-latency path. The chunked transfer evidence shows that node-gpac-dash
+      was actually serving the media progressively.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      7. Live Latency Validation
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Latency was measured by comparing the current clock time with the wall-clock time embedded in
+      the video frame by OBS. I also used an internet clock page during manual measurements, but the
+      important value is the difference between the current time and the visible video timestamp.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The successful below-5-second validation result was:
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Setting
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Value
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          OBS output
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          852x480
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          OBS bitrate
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1200 kbps
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          FPS
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          30
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Keyframe interval
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1 second
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          FFmpeg keyint
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          30
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Segment duration
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1 second
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Measured latency
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          about 4000 ms
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Playback
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          no visible stalls
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      I also noticed that changing tabs or moving away from the player could cause playback waiting
+      events. When the player tab stayed foreground, the low-resolution 1-second segment run stayed
+      stable for 1-2 minutes. When I switched tabs, Chrome/dash.js sometimes stalled and then used
+      live catchup to return near the live edge. For this reason, the final measurements were done
+      with the player foreground.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      8. Segment Duration Experiment
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      For this experiment, segment duration was varied while keeping the stream at 30 fps. The
+      keyframe interval was matched to the segment length.
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Segment duration (s)
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Keyint
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Latency (ms)
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Playback observation
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          30
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          4000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable and below 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          2
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          60
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          3
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          90
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          4
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          120
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          150
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          7000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          6
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          180
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          7500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The results show that smaller segment duration helped latency. The
+      <code>seg_duration=1</code> run was the strongest result, while <code>seg_duration=2</code>,
+      <code>seg_duration=3</code>, and <code>seg_duration=4</code> clustered just above the 5-second
+      boundary after the clock-offset correction. As segment duration increased further, latency
+      generally increased. This makes sense because the player and DASH live window have more
+      segment-level delay to work with. Larger segments were usually stable, but they did not meet
+      the low-latency target.
+    </p>
+    <p style="text-align: center; margin: 8pt 0 12pt 0">
+      <img
+        src="report-assets/segment-latency.png"
+        alt="Latency vs Segment Duration"
+        style="max-width: 100%; height: auto"
+      />
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      9. Fragment Duration Experiment
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      For the fragment experiment, the segment duration was fixed at 4 seconds with
+      <code>keyint=120</code>. The OBS output stayed at 852x480 and 1200 kbps, while
+      <code>frag_duration</code> was changed using <code>-frag_type duration</code>.
+    </p>
+    <table style="border-collapse: collapse; width: 100%; margin: 8pt 0 12pt 0; font-size: 10pt">
+      <tr>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Fragment duration (s)
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Latency (ms)
+        </th>
+        <th
+          style="
+            border: 1px solid #888;
+            padding: 5pt;
+            text-align: left;
+            vertical-align: top;
+            background: #eaf2f8;
+          "
+        >
+          Playback observation
+        </th>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          0.033
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable, near 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          0.066
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          0.1
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          0.2
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          5500
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          0.5
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          6000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Stable but above 5 s
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          1
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          6000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Repeated playback waiting
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          2
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          6000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Waiting and gap correction
+        </td>
+      </tr>
+      <tr>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          4
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          9000
+        </td>
+        <td style="border: 1px solid #888; padding: 5pt; text-align: left; vertical-align: top">
+          Audio buffer instability
+        </td>
+      </tr>
+    </table>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The fragment-duration experiment did not produce a better result than the 1-second segment
+      validation profile. With fixed 4-second segments, the adjusted measured latency stayed around
+      5-6 seconds for the smaller fragment values. Larger fragment values caused more visible
+      playback waiting and audio buffer problems. In particular, <code>frag_duration=1</code>,
+      <code>2</code>, and <code>4</code> showed repeated dash.js <code>PLAYBACK_WAITING</code> and
+      <code>GapController</code> jumps.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This was another difficult part of the project. At first I expected smaller fragments to
+      always reduce the latency a lot. In practice, the full setup also depended on OBS ingest
+      delay, DASH live delay, segment duration, audio/video alignment, and browser behavior. The
+      fragment size alone did not solve the latency problem when <code>seg_duration</code> stayed at
+      4 seconds.
+    </p>
+    <p style="text-align: center; margin: 8pt 0 12pt 0">
+      <img
+        src="report-assets/fragment-latency.png"
+        alt="Latency vs Fragment Duration"
+        style="max-width: 100%; height: auto"
+      />
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      10. Testing And Automation
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Automated checks were used to keep the implementation and documentation consistent. I used
+      TypeScript scripts to generate experiment matrices, FFmpeg command checklists, latency
+      reports, live validation status, and QR overlay files.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">The automated validation command is:</p>
+    <pre
+      style="
+        font-family: Consolas, Menlo, monospace;
+        background-color: #f4f4f4;
+        padding: 6pt;
+        white-space: pre-wrap;
+        margin: 6pt 0 10pt 0;
+        text-align: left;
+      "
+    ><code>make validate-pr</code></pre>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This command runs linting, type checking, tests, build checks, environment validation,
+      experiment matrix generation, and latency report generation.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      GitHub Actions is also configured for project checks. The project uses ESLint, TypeScript
+      typecheck, Vitest tests, Prettier, Husky, and lint-staged. This helped catch mistakes in
+      generated files and scripts. For example, one latency CSV issue was fixed by adding parser
+      support for explicit <code>latency_ms</code> values when the observed timestamps are not ISO
+      timestamps.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      I also used OpenCode and Antigravity during development to automate repetitive checks, run
+      tests, and generate supporting files. These tools were used as development assistance, not as
+      a replacement for live validation. The actual screenshots, latency measurements, and browser
+      inspector evidence came from real local runs.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      11. QR Code Bonus
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      I also implemented an optional QR timestamp overlay. It generates a QR payload in this format:
+    </p>
+    <pre
+      style="
+        font-family: Consolas, Menlo, monospace;
+        background-color: #f4f4f4;
+        padding: 6pt;
+        white-space: pre-wrap;
+        margin: 6pt 0 10pt 0;
+        text-align: left;
+      "
+    ><code>cs418-project3-ts=&lt;ISO timestamp&gt;</code></pre>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The overlay can be added to OBS as a Browser Source. The current implementation serves the QR
+      generator locally from <code>public/qrcode.bundle</code>, so the overlay does not depend on a
+      remote CDN during the live demo. I also extended the browser player with a
+      <strong>QR-Based Latency Monitor</strong> panel. That panel samples frames from the HTML5
+      video element into an offscreen canvas, uses the <code>jsQR</code> browser library to decode
+      the timestamp payload when the QR code is visible, and displays the latency computed from the
+      decoded timestamp and the player-side system clock.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      This QR path is implemented as a bonus aid and is separate from the required wall-clock
+      validation. I did not complete a separately recorded, validated QR latency measurement for the
+      report, so I am not using QR latency as the required validation result. The required
+      validation result in this report is still the wall-clock overlay measurement.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      12. Main Difficulties
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The biggest difficulty was that every part of the pipeline could add latency or cause stalls.
+      At the beginning, the stream did not send media correctly because node-gpac-dash ended segment
+      responses too early when <code>chunkCount=0</code>. After that was fixed, another issue
+      appeared around segment boundaries. dash.js showed <code>PLAYBACK_WAITING</code>, and the logs
+      showed <code>GapController</code> jumping around <code>0.1s</code>. This happened more with
+      some 4-second segment and fragment configurations.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Another difficulty was measuring latency consistently. I recorded the higher latency values
+      too, including runs that were stable but above 5 seconds and runs that had stalls. After
+      identifying a 1-second clock offset in the measurement setup, I adjusted the recorded latency
+      values by subtracting 1000 ms. This made the final results more accurate while keeping the
+      same relative trend: the 1-second segment low-resolution profile was the strongest
+      configuration in this local environment.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The FFmpeg source modification also had to be checked carefully. It was not enough to use
+      Homebrew FFmpeg or a random system FFmpeg. I verified the source-built binary, the configure
+      flags, and the actual <code>dashenc.c</code> patch.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      13. Conclusion
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The final implementation uses OBS, RTMP, modified source-built FFmpeg, LL-DASH packaging,
+      NGINX, modified node-gpac-dash, and dash.js. I verified browser chunked transfer encoding and
+      measured latency using the wall-clock timestamp in the video.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      The final passing profile was the low-resolution <code>seg_duration=1</code>,
+      <code>keyint=30</code> run, with about <strong>4.0 seconds</strong> adjusted latency and no
+      visible foreground playback stalls. The segment-duration experiment showed that larger segment
+      durations generally increased latency. The fragment-duration experiment showed that changing
+      fragment duration alone did not beat the 1-second segment profile, and larger fragment
+      durations caused repeated playback waiting.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Overall, the project reached the required below-5-second latency, but it also showed that
+      low-latency streaming is sensitive to encoder settings, segment duration, player live delay,
+      server behavior, and browser playback state.
+    </p>
+    <h2 style="font-size: 15pt; color: #17365d; margin: 18pt 0 8pt 0; text-align: left">
+      References
+    </h2>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      CS 418. (2026). <em>Project 3: Low Latency</em> [Course assignment handout].
+      <code>Low Latency.docx</code>.
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      Zhang, B. (n.d.). <em>Low-latency DASH streaming using open-source tools</em>. Medium.
+      Retrieved May 29, 2026, from
+      <a
+        href="https://bozhang-26963.medium.com/low-latency-dash-streaming-using-open-source-tools-f93142ece69d"
+        >https://bozhang-26963.medium.com/low-latency-dash-streaming-using-open-source-tools-f93142ece69d</a
+      >
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      FFmpeg Developers. (n.d.). <em>FFmpeg formats documentation</em>. Retrieved May 29, 2026, from
+      <a href="https://ffmpeg.org/ffmpeg-formats.html">https://ffmpeg.org/ffmpeg-formats.html</a>
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      OBS Project. (n.d.). <em>OBS Studio</em>. Retrieved May 29, 2026, from
+      <a href="https://obsproject.com">https://obsproject.com</a>
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      FFmpeg Developers. (n.d.). <em>Compilation guide for Ubuntu</em>. FFmpeg Wiki. Retrieved May
+      29, 2026, from
+      <a href="https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu"
+        >https://trac.ffmpeg.org/wiki/CompilationGuide/Ubuntu</a
+      >
+    </p>
+    <p style="margin: 0 0 8pt 0; text-align: left">
+      DASH Industry Forum. (n.d.). <em>Low Latency DASH change request</em> [Technical change
+      request]. Referenced by Zhang (n.d.).
+    </p>
+  </body>
+</html>

@@ -48,4 +48,15 @@ describe("required docs coverage", () => {
     expect(content).toContain("npm run experiment:matrix");
     expect(content).toContain("npm run latency:report");
   });
+
+  test("final report documents graph figures and QR bonus truthfully", () => {
+    const content = read("docs/final-report.md");
+
+    expect(content).toContain("report-assets/segment-latency.png");
+    expect(content).toContain("report-assets/fragment-latency.png");
+    expect(content).toContain("QR-Based Latency Monitor");
+    expect(content).toContain("jsQR");
+    expect(content).toContain("not using QR latency as the required validation result");
+    expect(content).not.toContain("successfully measured approximately **4.5 seconds**");
+  });
 });

@@ -5,11 +5,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CS 418 QR timestamp overlay</title>
     <style>
-      html, body { margin: 0; background: transparent; overflow: hidden; }
-      #wrap { display: inline-flex; align-items: center; gap: 8px; padding: 8px; background: rgba(0, 0, 0, 0.72); color: white; font-family: system-ui, sans-serif; border-radius: 8px; }
-      #qr { width: 132px; height: 132px; background: white; }
-      #label { font-size: 18px; line-height: 1.25; text-shadow: 0 1px 2px black; }
-      #payload { font-size: 12px; opacity: 0.85; max-width: 300px; overflow-wrap: anywhere; }
+      html,
+      body {
+        margin: 0;
+        background: transparent;
+        overflow: hidden;
+      }
+      #wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        background: rgba(0, 0, 0, 0.72);
+        color: white;
+        font-family: system-ui, sans-serif;
+        border-radius: 8px;
+      }
+      #qr {
+        width: 132px;
+        height: 132px;
+        background: white;
+      }
+      #label {
+        font-size: 18px;
+        line-height: 1.25;
+        text-shadow: 0 1px 2px black;
+      }
+      #payload {
+        font-size: 12px;
+        opacity: 0.85;
+        max-width: 300px;
+        overflow-wrap: anywhere;
+      }
     </style>
   </head>
   <body>
@@ -44,7 +71,12 @@
         for (let row = 0; row < moduleCount; row += 1) {
           for (let col = 0; col < moduleCount; col += 1) {
             if (qr.isDark(row, col)) {
-              context.fillRect(offset + col * cellSize, offset + row * cellSize, cellSize, cellSize);
+              context.fillRect(
+                offset + col * cellSize,
+                offset + row * cellSize,
+                cellSize,
+                cellSize,
+              );
             }
           }
         }

@@ -22,7 +22,8 @@ This generates `public/qr-overlay.html`.
 ## Payload And Measurement
 
 - The QR payload format is `cs418-project3-ts=<ISO timestamp>`.
-- Decode the QR code from a received video frame.
-- Subtract the decoded timestamp from the current system clock.
-- Record QR-based latency separately from the required wall-clock overlay measurements.
+- The player includes a QR-Based Latency Monitor that samples the received video frame into an offscreen canvas.
+- The monitor uses the `jsQR` browser library to decode the QR payload when the overlay is visible in the video.
+- The monitor subtracts the decoded timestamp from the current browser system clock and displays the live QR-based latency estimate.
+- Record QR-based latency separately from the required wall-clock overlay measurements if a formal QR run is performed.
 - Do not report QR-based latency unless the decode measurement was actually performed and recorded.

@@ -15,6 +15,7 @@
 ## Bonus Disclosure
 
 - QR Code Generator for JavaScript (`qrcode-generator@1.4.4`, Kazuhiko Arase): vendored as `public/qrcode.bundle` to render the optional OBS Browser Source QR timestamp overlay without relying on a remote CDN during the live demo.
+- jsQR (`jsqr@1.4.0` from jsDelivr CDN): used by the optional player-side QR-Based Latency Monitor to decode QR timestamps from received video frames.
 - The QR overlay is isolated from the core streaming pipeline and should be used only after the required core validation evidence has been captured.
 
 ## Local Patch Notes

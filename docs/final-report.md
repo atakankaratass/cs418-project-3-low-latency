@@ -186,7 +186,9 @@ I also implemented an optional QR timestamp overlay. It generates a QR payload i
 cs418-project3-ts=<ISO timestamp>
 ```
 
-The overlay can be added to OBS as a Browser Source. The current implementation serves the QR generator locally from `public/qrcode.bundle`, so the overlay does not depend on a remote CDN during the live demo. The helper code and tests for QR timestamp formatting and latency subtraction are included. However, I did not complete a validated QR decode measurement from the received video frame. Because of that, I am not using QR latency as the required validation result. The required validation result in this report is still the wall-clock overlay measurement.
+The overlay can be added to OBS as a Browser Source. The current implementation serves the QR generator locally from `public/qrcode.bundle`, so the overlay does not depend on a remote CDN during the live demo. I also extended the browser player with a **QR-Based Latency Monitor** panel. That panel samples frames from the HTML5 video element into an offscreen canvas, uses the `jsQR` browser library to decode the timestamp payload when the QR code is visible, and displays the latency computed from the decoded timestamp and the player-side system clock.
+
+This QR path is implemented as a bonus aid and is separate from the required wall-clock validation. I did not complete a separately recorded, validated QR latency measurement for the report, so I am not using QR latency as the required validation result. The required validation result in this report is still the wall-clock overlay measurement.
 
 ## 12. Main Difficulties
 
