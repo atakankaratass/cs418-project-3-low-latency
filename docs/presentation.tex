@@ -1,0 +1,191 @@
+\documentclass{beamer}
+\usetheme{Madrid}
+
+% Standard packages
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{graphicx}
+
+% Presentation Info
+\title[Low-Latency DASH Streaming]{Low-Latency DASH Live Streaming Pipeline}
+\subtitle{CS 418 Project 3 - Final Presentation}
+\author[Atakan Karata\c{s}]{Atakan Karata\c{s}}
+\institute[Özye\v{g}in University]{
+    Department of Computer Engineering\\
+    \"{O}zye\v{g}in University, Istanbul, Turkey
+}
+\date[May 2026]{May 30, 2026}
+
+\begin{document}
+
+% Slide 1: Title Page
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% Slide 2: Outline
+\begin{frame}{Outline}
+    \tableofcontents
+\end{frame}
+
+\section{Project Goal \& Motivation}
+
+% Slide 3: Goal & Motivation
+\begin{frame}{Project Goal \& Motivation}
+    \begin{block}{Core Objective}
+        Build a low-latency live streaming pipeline to achieve glass-to-glass latency of \textbf{under 5 seconds} using open-source tools.
+    \end{block}
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{Use Cases:} Real-time interaction, remote monitoring, interactive live shows.
+        \item \textbf{Challenges:} Standard HTTP streaming protocols (DASH/HLS) introduce 6-30 seconds of delay due to segment buffering.
+        \item \textbf{Key Approach:} Low-latency DASH (LL-DASH) using chunked transfer encoding.
+    \end{itemize}
+\end{frame}
+
+\section{System Architecture}
+
+% Slide 4: System Architecture
+\begin{frame}{End-to-End Pipeline Architecture}
+    The streaming delivery chain consists of five main components:
+    \vspace{0.2cm}
+    \begin{itemize}
+        \item \textbf{OBS Studio:} Media source. Captures video and burns high-precision wall-clock time overlay.
+        \item \textbf{RTMP Link:} Encoded media transmission from OBS to local packaging process.
+        \item \textbf{Modified FFmpeg:} Packages incoming RTMP stream into low-latency DASH chunks/segments.
+        \item \textbf{NGINX \& node-gpac-dash:} Serves the dash.js player and delivers segments progressively.
+        \item \textbf{dash.js Player:} Browser playback engine with live catchup.
+    \end{itemize}
+\end{frame}
+
+\section{FFmpeg Source Build}
+
+% Slide 5: FFmpeg Source Modification (Appendix A)
+\begin{frame}{FFmpeg Source Modification}
+    \begin{block}{The Problem}
+        FFmpeg normally writes DASH segments with a temporary \texttt{.tmp} extension, renaming them upon completion. This blocks node-gpac-dash from streaming files mid-write.
+    \end{block}
+    \vspace{0.2cm}
+    \begin{block}{The Solution (Appendix A)}
+        Patch \texttt{libavformat/dashenc.c} to write directly to the final file name:
+        \vspace{0.1cm}
+        \small
+        \begin{description}
+            \item[Original:] \texttt{use\_rename ? "\%s.tmp" : "\%s"}
+            \item[Modified:] \texttt{use\_rename ? "\%s" : "\%s"}
+        \end{description}
+    \end{block}
+    \vspace{0.1cm}
+    \begin{itemize}
+        \item Compiled with flags: \texttt{--enable-demuxer=dash --enable-libxml2}.
+    \end{itemize}
+\end{frame}
+
+\section{Core Validation}
+
+% Slide 6: Core Validation
+\begin{frame}{Core Validation}
+    \begin{itemize}
+        \item \textbf{HTTP Chunked Encoding:} Verified via Network inspector showing \texttt{Transfer-Encoding: chunked} for DASH segment responses.
+        \item \textbf{Stabilizing Encoder Lag:} High OBS encoding resolutions caused CPU lag. Resolved by reducing settings to:
+        \begin{itemize}
+            \item Resolution: \textbf{852x480}
+            \item Bitrate: \textbf{1200 kbps} (30 FPS)
+        \end{itemize}
+        \item \textbf{Baseline Result:} 1-second segment profile reached stable \textbf{~4.0 seconds} of glass-to-glass latency without stalls.
+    \end{itemize}
+\end{frame}
+
+\section{Experiments}
+
+% Slide 7: Segment Duration Experiment
+\begin{frame}{Segment Duration Experiment}
+    Varying segment duration (\texttt{seg\_duration}) and keyframe interval (\texttt{keyint}) at 30 FPS:
+    \vspace{0.2cm}
+    \begin{table}
+        \centering
+        \scriptsize
+        \begin{tabular}{cccr}
+            \toprule
+            \textbf{Seg. Duration (s)} & \textbf{Keyint} & \textbf{Latency (ms)} & \textbf{Stability} \\
+            \midrule
+            \textbf{1} & \textbf{30} & \textbf{4000} & \textbf{Stable (Target Met)} \\
+            2 & 60 & 5500 & Stable \\
+            3 & 90 & 5500 & Stable \\
+            4 & 120 & 5500 & Stable \\
+            5 & 150 & 7000 & Stalls \\
+            6 & 180 & 7500 & Stable but slow \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \begin{itemize}
+        \item \textbf{Insight:} Latency scales with segment size. Only the 1s segment profile achieved the required under-5s latency.
+    \end{itemize}
+\end{frame}
+
+% Slide 8: Fragment Duration Experiment
+\begin{frame}{Fragment Duration Experiment}
+    Testing fragment duration (\texttt{frag\_duration}) with fixed 4s segments and \texttt{keyint=120}:
+    \vspace{0.1cm}
+    \begin{table}
+        \centering
+        \tiny
+        \begin{tabular}{ccr}
+            \toprule
+            \textbf{Fragment Duration (s)} & \textbf{Latency (ms)} & \textbf{Stability} \\
+            \midrule
+            0.033 & 5000 & Stable \\
+            0.066 & 5500 & Stable \\
+            0.100 & 5500 & Stable \\
+            0.200 & 5500 & Stable \\
+            0.500 & 6000 & Stable \\
+            1.000 & 6000 & Minor waiting / catchup \\
+            2.000 & 6000 & Gap Controller adjustments \\
+            4.000 & 9000 & Instability / stalls \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{-0.1cm}
+    \begin{itemize}
+        \item \textbf{Insight:} Fragment size alone does not bypass segment-level buffer delays. Large fragments cause repeated player stalls.
+    \end{itemize}
+\end{frame}
+
+\section{Bonus: QR Latency Monitor}
+
+% Slide 9: Bonus: QR Latency Monitor
+\begin{frame}{Bonus: QR Latency Monitor}
+    \begin{itemize}
+        \item \textbf{System Clock Overlay:} Generates QR code containing local clock timestamp.
+        \item \textbf{Payload format:} \texttt{cs418-project3-ts=<ISO timestamp>}.
+        \item \textbf{Player-side Decoding:} Samples frames from HTML5 video element into an offscreen canvas.
+        \item \textbf{Real-Time Latency:} Uses the browser-based \texttt{jsQR} library to decode the QR code and subtract it from the player clock.
+        \item \textbf{Advantage:} Enables automated, sub-second precision latency monitoring without manual stopwatch screenshots.
+    \end{itemize}
+\end{frame}
+
+\section{Conclusion}
+
+% Slide 10: Conclusion
+\begin{frame}{Conclusion}
+    \begin{itemize}
+        \item \textbf{Goal Achieved:} Under 5 seconds latency is achieved at \textbf{4.0 seconds} adjusted latency.
+        \item \textbf{System Sensitivity:} Low latency requires tuning the entire delivery chain (encoder settings, proxy buffering, segment/chunk sizes).
+        \item \textbf{Chunked Delivery:} Progressive HTTP/1.1 chunked transfer is mandatory to prevent segment buffering delays.
+        \item \textbf{Verification:} All test suites, formatting, and validation scripts pass locally.
+    \end{itemize}
+\end{frame}
+
+\section*{Thank You}
+
+% Slide 11: Thank You
+\begin{frame}{Thank You}
+    \centering
+    \vspace{1.0cm}
+    \Huge Questions?
+    \vspace{0.5cm}
+    \Large \\ Q&A Session
+\end{frame}
+
+\end{document}
+

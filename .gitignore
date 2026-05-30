@@ -12,3 +12,4 @@ worktrees/
 ~$*.docx
 *.log
 session-*.md
+docs/slides.pdf
